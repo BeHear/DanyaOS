@@ -31,37 +31,15 @@ static void print_prompt(void) {
 }
 
 static void cmd_help(void) {
-    vga_puts("DanyaOS Shell v1.1.2\n\n");
-    vga_puts("Commands:\n");
-    vga_puts("  help              - show this help\n");
-    vga_puts("  clear / cls       - clear screen\n");
-    vga_puts("  echo <msg>        - print message\n");
-    vga_puts("  uname             - system info\n");
-    vga_puts("  mem / free        - memory info\n");
-    vga_puts("  uptime            - timer ticks\n");
-    vga_puts("  ps                - list processes\n");
-    vga_puts("  create <name>     - create process\n");
-    vga_puts("  ipc               - test IPC\n");
-    vga_puts("  ls                - list files\n");
-    vga_puts("  touch <file>      - create file\n");
-    vga_puts("  write <f> <data>  - write to file\n");
-    vga_puts("  cat <file>        - read file\n");
-    vga_puts("  rm <file>         - delete file\n");
-    vga_puts("  cp <src> <dst>    - copy file\n");
-    vga_puts("  mv <src> <dst>    - rename file\n");
-    vga_puts("  hexdump <file>    - hex dump file\n");
-    vga_puts("  color <fg> <bg>   - set colors\n");
-    vga_puts("  date              - show date/time\n");
-    vga_puts("  whoami            - current user\n");
-    vga_puts("  pwd               - current directory\n");
-    vga_puts("  calc <expr>       - simple calculator\n");
-    vga_puts("  history           - command history\n");
-    vga_puts("  reset             - reset terminal\n");
-    vga_puts("  beep              - PC speaker beep\n");
-    vga_puts("  about             - about DanyaOS\n");
-    vga_puts("  tuitest           - test TUI demo\n");
-    vga_puts("  shutdown          - shutdown (QEMU)\n");
-    vga_puts("  reboot            - reboot (QEMU)\n");
+    vga_puts("DanyaOS Shell v1.1.2 - Commands:\n\n");
+    vga_puts(" help        clear/cls   echo        uname\n");
+    vga_puts(" mem/free    uptime      ps          create\n");
+    vga_puts(" ipc         ls          touch       write\n");
+    vga_puts(" cat         rm          cp          mv\n");
+    vga_puts(" hexdump     color       date        whoami\n");
+    vga_puts(" pwd         calc        history     reset\n");
+    vga_puts(" beep        about       tuitest     shutdown\n");
+    vga_puts(" reboot\n");
 }
 
 static void cmd_clear(void) {
@@ -421,6 +399,7 @@ void shell_run(void) {
         char c = keyboard_getchar();
 
         if (c == '\n') {
+            vga_putchar('\n');
             cmd_buf[cmd_len] = '\0';
             if (cmd_len > 0) {
                 process_command(cmd_buf);
