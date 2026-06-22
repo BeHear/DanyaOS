@@ -3,6 +3,10 @@
 #include "../include/io.h"
 #include "../libc/string.h"
 
+#define PAGE_DIRECTORY_ENTRIES 1024
+#define PAGE_TABLE_ENTRIES     1024
+#define ENTRIES_PER_TABLE      1024
+
 static page_directory_entry_t* current_directory;
 static page_directory_entry_t* kernel_directory;
 
@@ -16,7 +20,7 @@ static page_table_entry_t* get_page_table(page_directory_entry_t* dir, uint32_t 
     page_table_entry_t* table = (page_table_entry_t*)pmm_alloc_page();
     if (!table) return NULL;
 
-    memset(table, 0, sizeof(page_table_entry_t) * 1024);
+    memset(table, 0, sizeof(page_table_entry_t) * PAGE_TABLE_ENTRIES);
     dir[index].present = 1;
     dir[index].rw      = 1;
     dir[index].user    = 0;
@@ -27,16 +31,16 @@ static page_table_entry_t* get_page_table(page_directory_entry_t* dir, uint32_t 
 
 void vmm_init(void) {
     kernel_directory = (page_directory_entry_t*)pmm_alloc_page();
-    memset(kernel_directory, 0, sizeof(page_directory_entry_t) * 1024);
+    memset(kernel_directory, 0, sizeof(page_directory_entry_t) * PAGE_DIRECTORY_ENTRIES);
 
-    for (uint32_t i = 0; i < 1024; i++) {
+    for (uint32_t i = 0; i < 16; i++) {
         page_table_entry_t* table = (page_table_entry_t*)pmm_alloc_page();
         if (!table) continue;
 
-        memset(table, 0, sizeof(page_table_entry_t) * 1024);
+        memset(table, 0, sizeof(page_table_entry_t) * PAGE_TABLE_ENTRIES);
 
-        for (uint32_t j = 0; j < 1024; j++) {
-            uint32_t phys = i * 1024 * PAGE_SIZE + j * PAGE_SIZE;
+        for (uint32_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
+            uint32_t phys = i * ENTRIES_PER_TABLE * PAGE_SIZE + j * PAGE_SIZE;
             table[j].present = 1;
             table[j].rw      = 1;
             table[j].user    = 0;
@@ -105,9 +109,9 @@ page_directory_entry_t* vmm_create_directory(void) {
     page_directory_entry_t* dir = (page_directory_entry_t*)pmm_alloc_page();
     if (!dir) return NULL;
 
-    memset(dir, 0, sizeof(page_directory_entry_t) * 1024);
+    memset(dir, 0, sizeof(page_directory_entry_t) * PAGE_DIRECTORY_ENTRIES);
 
-    for (uint32_t i = 0; i < 1024; i++) {
+    for (uint32_t i = 0; i < 16; i++) {
         if (kernel_directory[i].present) {
             dir[i] = kernel_directory[i];
         }
@@ -117,7 +121,7 @@ page_directory_entry_t* vmm_create_directory(void) {
 }
 
 void vmm_free_directory(page_directory_entry_t* dir) {
-    for (uint32_t i = 0; i < 1024; i++) {
+    for (uint32_t i = 0; i < PAGE_DIRECTORY_ENTRIES; i++) {
         if (dir[i].present && dir[i].user) {
             page_table_entry_t* table = (page_table_entry_t*)(dir[i].table << 12);
             pmm_free_page(table);

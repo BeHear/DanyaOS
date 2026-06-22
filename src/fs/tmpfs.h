@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-#define TMPFS_MAX_FILES 128
+#define TMPFS_MAX_FILES 32
 #define TMPFS_NAME_LEN  64
 #define TMPFS_DATA_SIZE 4096
 

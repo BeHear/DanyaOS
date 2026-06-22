@@ -5,6 +5,7 @@
 [ORG 0x7C00]
 
 KERNEL_OFFSET equ 0x1000
+SECTORS_TO_READ equ 30
 
 start:
     xor ax, ax
@@ -35,14 +36,14 @@ print_string_rm:
 load_kernel:
     mov si, msg_load
     call print_string_rm
+
     mov bx, KERNEL_OFFSET
-    mov dh, 60
-    mov dl, [BOOT_DRIVE]
-    mov ah, 0x02
-    mov al, dh
     mov ch, 0
     mov cl, 2
     mov dh, 0
+    mov dl, [BOOT_DRIVE]
+    mov ah, 0x02
+    mov al, SECTORS_TO_READ
     int 0x13
     jc disk_error
     ret

@@ -1,5 +1,3 @@
-/* DanyaOS Microkernel - Linker Script */
-
 OUTPUT_FORMAT("elf32-i386")
 ENTRY(_start)
 
@@ -21,14 +19,14 @@ SECTIONS {
         *(.data.*)
     }
 
-    __kernel_end = .;
-
     .bss : {
         __bss_start = .;
         *(.bss)
         *(COMMON)
         __bss_end = .;
     }
+
+    __kernel_end = .;
 
     /DISCARD/ : {
         *(.eh_frame)
