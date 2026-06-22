@@ -27,7 +27,7 @@ static void print_banner(void) {
     vga_puts(" |_____/ |_| |_||_|    |____/  \\____||_| |_|\n");
     vga_puts("\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("  Microkernel v1.1.0\n");
+    vga_puts("  Microkernel v1.1.1\n");
     vga_puts("  (c) 2025 DanyaOS Project\n\n");
     vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
     vga_puts("  Initializing subsystems...\n");
@@ -140,7 +140,7 @@ static void init_subsystems(void) {
 
 void kernel_main(void) {
     serial_init();
-    serial_puts("\n=== DanyaOS v1.1.0 ===\n");
+    serial_puts("\n=== DanyaOS v1.1.1 ===\n");
     serial_puts("[kernel] kernel_main entered\n");
 
     vga_init();

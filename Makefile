@@ -97,10 +97,10 @@ $(BUILD)/%.o: $(SRC)/libc/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 run: $(BUILD)/danyaos.bin
-	qemu-system-i386 -drive format=raw,file=$(BUILD)/danyaos.bin
+	qemu-system-i386 -drive file=$(BUILD)/danyaos.bin,if=floppy,format=raw,index=0 -boot a
 
 debug: $(BUILD)/danyaos.bin
-	qemu-system-i386 -drive format=raw,file=$(BUILD)/danyaos.bin -s -S &
+	qemu-system-i386 -drive file=$(BUILD)/danyaos.bin,if=floppy,format=raw,index=0 -boot a -s -S &
 
 clean:
 	rm -rf $(BUILD)

@@ -1,6 +1,7 @@
 #include "pmm.h"
 #include "../include/io.h"
 #include "../libc/string.h"
+#include "../drivers/vga.h"
 
 #define BITMAP_SIZE 8192
 
@@ -36,6 +37,12 @@ void pmm_init(uint32_t total_memory) {
 
     uint32_t bitmap_pages = (BITMAP_SIZE + PAGE_SIZE - 1) / PAGE_SIZE;
     for (uint32_t i = 0; i < bitmap_pages; i++) {
+        bitmap_set(i);
+    }
+
+    uint32_t vga_buffer_start = 0xB8000 / PAGE_SIZE;
+    uint32_t vga_buffer_end = (0xB8000 + VGA_WIDTH * VGA_HEIGHT * 2 + PAGE_SIZE - 1) / PAGE_SIZE;
+    for (uint32_t i = vga_buffer_start; i < vga_buffer_end; i++) {
         bitmap_set(i);
     }
 

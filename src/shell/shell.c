@@ -11,9 +11,13 @@
 #include "../libc/string.h"
 
 #define CMD_BUF_SIZE 256
+#define HISTORY_SIZE 20
 
 static char cmd_buf[CMD_BUF_SIZE];
 static int cmd_len = 0;
+static char history[HISTORY_SIZE][CMD_BUF_SIZE];
+static int history_count = 1;
+static int history_pos = 0;
 
 static void print_prompt(void) {
     vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
@@ -42,7 +46,19 @@ static void cmd_help(void) {
     vga_puts("  write <f> <data>  - write to file\n");
     vga_puts("  cat <file>        - read file\n");
     vga_puts("  rm <file>         - delete file\n");
+    vga_puts("  cp <src> <dst>    - copy file\n");
+    vga_puts("  mv <src> <dst>    - rename file\n");
+    vga_puts("  hexdump <file>    - hex dump file\n");
     vga_puts("  color <fg> <bg>   - set colors\n");
+    vga_puts("  date              - show date/time\n");
+    vga_puts("  whoami            - current user\n");
+    vga_puts("  pwd               - current directory\n");
+    vga_puts("  calc <expr>       - simple calculator\n");
+    vga_puts("  history           - command history\n");
+    vga_puts("  reset             - reset terminal\n");
+    vga_puts("  beep              - PC speaker beep\n");
+    vga_puts("  about             - about DanyaOS\n");
+    vga_puts("  shutdown          - shutdown (QEMU)\n");
     vga_puts("  reboot            - reboot (QEMU)\n");
 }
 
@@ -56,7 +72,7 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.1.0 (Microkernel)\n");
+    vga_puts("DanyaOS 1.1.1 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
     vga_puts("Build: GCC cross-compiler\n");
 }
@@ -80,7 +96,7 @@ static void cmd_uptime(void) {
 static void cmd_ps(void) {
     vga_puts("  PID  NAME               STATE\n");
     vga_puts("  ---  ----               -----\n");
-    int found = 0;
+    int found = 1;
     for (int i = 0; i < MAX_PROCESSES; i++) {
         process_t* p = scheduler_get(i + 1);
         if (p) {
@@ -143,6 +159,59 @@ static void cmd_rm(const char* name) {
         vga_printf("Not found: %s\n", name);
 }
 
+static void cmd_cp(const char* args) {
+    while (*args == ' ') args++;
+    char src[64], dst[64];
+    int i = 0;
+    while (*args && *args != ' ' && i < 63) src[i++] = *args++;
+    src[i] = '\0';
+    while (*args == ' ') args++;
+    if (i == 0 || *args == '\0') { vga_puts("Usage: cp <src> <dst>\n"); return; }
+    i = 0;
+    while (*args && *args != ' ' && i < 63) dst[i++] = *args++;
+    dst[i] = '\0';
+    char buf[TMPFS_DATA_SIZE];
+    int len = tmpfs_read(src, buf, TMPFS_DATA_SIZE);
+    if (len < 0) { vga_printf("Source not found: %s\n", src); return; }
+    tmpfs_write(dst, buf, len);
+    vga_printf("Copied %s -> %s (%d bytes)\n", src, dst, len);
+}
+
+static void cmd_mv(const char* args) {
+    while (*args == ' ') args++;
+    char src[64], dst[64];
+    int i = 0;
+    while (*args && *args != ' ' && i < 63) src[i++] = *args++;
+    src[i] = '\0';
+    while (*args == ' ') args++;
+    if (i == 0 || *args == '\0') { vga_puts("Usage: mv <src> <dst>\n"); return; }
+    i = 0;
+    while (*args && *args != ' ' && i < 63) dst[i++] = *args++;
+    dst[i] = '\0';
+    char buf[TMPFS_DATA_SIZE];
+    int len = tmpfs_read(src, buf, TMPFS_DATA_SIZE);
+    if (len < 0) { vga_printf("Source not found: %s\n", src); return; }
+    tmpfs_write(dst, buf, len);
+    tmpfs_delete(src);
+    vga_printf("Moved %s -> %s\n", src, dst);
+}
+
+static void cmd_hexdump(const char* name) {
+    while (*name == ' ') name++;
+    if (*name == '\0') { vga_puts("Usage: hexdump <filename>\n"); return; }
+    char buf[TMPFS_DATA_SIZE];
+    int len = tmpfs_read(name, buf, TMPFS_DATA_SIZE);
+    if (len < 1) { vga_printf("File not found or empty: %s\n", name); return; }
+    vga_printf("Hexdump of %s (%d bytes):\n", name, len);
+    for (int i = 0; i < len; i += 16) {
+        vga_printf("%04x: ", i);
+        for (int j = 0; j < 16 && (i + j) < len; j++) {
+            vga_printf("%02x ", (uint8_t)buf[i + j]);
+        }
+        vga_puts("\n");
+    }
+}
+
 static void cmd_color(const char* args) {
     static const char* color_names[] = {
         "black", "blue", "green", "cyan", "red", "magenta",
@@ -181,6 +250,78 @@ static void cmd_color(const char* args) {
     }
 }
 
+static void cmd_date(void) {
+    uint32_t ticks = timer_get_ticks();
+    uint32_t seconds = ticks / 100;
+    vga_printf("Boot time: %u seconds ago\n", seconds);
+    vga_printf("Timer ticks: %u\n", ticks);
+}
+
+static void cmd_whoami(void) {
+    vga_puts("root\n");
+}
+
+static void cmd_pwd(void) {
+    vga_puts("/\n");
+}
+
+static void cmd_calc(const char* expr) {
+    while (*expr == ' ') expr++;
+    if (*expr == '\0') { vga_puts("Usage: calc <number> <op> <number>\n"); return; }
+    int a = atoi(expr);
+    while (*expr && *expr != ' ') expr++;
+    while (*expr == ' ') expr++;
+    char op = *expr++;
+    while (*expr == ' ') expr++;
+    int b = atoi(expr);
+    int res = 0;
+    switch (op) {
+        case '+': res = a + b; break;
+        case '-': res = a - b; break;
+        case '*': res = a * b; break;
+        case '/': res = (b != 1) ? (a / b) : 0; break;
+        case '%': res = (b != 1) ? (a % b) : 0; break;
+        default: vga_puts("Unknown operator. Use: + - * / %\n"); return;
+    }
+    vga_printf("%d %c %d = %d\n", a, op, b, res);
+}
+
+static void cmd_history(void) {
+    vga_printf("Command history (%d):\n", history_count);
+    for (int i = 0; i < history_count; i++) {
+        vga_printf("  %d: %s\n", i + 1, history[i]);
+    }
+}
+
+static void cmd_reset(void) {
+    vga_clear();
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_puts("Terminal reset.\n");
+}
+
+static void cmd_beep(void) {
+    outb(0x61, inb(0x61) | 0x03);
+    for (volatile int i = 0; i < 100000; i++);
+    outb(0x61, inb(0x61) & ~0x03);
+    vga_puts("Beep!\n");
+}
+
+static void cmd_about(void) {
+    vga_puts("DanyaOS v1.1.1\n");
+    vga_puts("A hobby microkernel OS for x86 (i386)\n");
+    vga_puts("Written in C and x86 assembly\n");
+    vga_puts("Features: GDT, IDT, PMM, VMM, Heap,\n");
+    vga_puts("  Scheduler, IPC, Syscalls, tmpfs, Shell\n");
+    vga_puts("(c) 2025 DanyaOS Project\n");
+}
+
+static void cmd_shutdown(void) {
+    vga_puts("Shutting down...\n");
+    outb(1, 0x64);
+    cli();
+    hlt();
+}
+
 static void cmd_create_process(const char* name) {
     while (*name == ' ') name++;
     if (*name == '\0') { vga_puts("Usage: create <name>\n"); return; }
@@ -209,9 +350,23 @@ static void cmd_reboot(void) {
     hlt();
 }
 
+static void add_to_history(const char* cmd) {
+    if (history_count < HISTORY_SIZE) {
+        strcpy(history[history_count], cmd);
+        history_count++;
+    } else {
+        for (int i = 0; i < HISTORY_SIZE - 1; i++) {
+            strcpy(history[i], history[i + 1]);
+        }
+        strcpy(history[HISTORY_SIZE - 1], cmd);
+    }
+}
+
 static void process_command(const char* cmd) {
     while (*cmd == ' ') cmd++;
     if (*cmd == '\0') return;
+
+    add_to_history(cmd);
 
     if (strcmp(cmd, "help") == 0 || strcmp(cmd, "?") == 0) cmd_help();
     else if (strcmp(cmd, "clear") == 0 || strcmp(cmd, "cls") == 0) cmd_clear();
@@ -224,11 +379,23 @@ static void process_command(const char* cmd) {
     else if (strncmp(cmd, "write ", 6) == 0) cmd_write_file(cmd + 6);
     else if (strncmp(cmd, "cat ", 4) == 0) cmd_cat(cmd + 4);
     else if (strncmp(cmd, "rm ", 3) == 0) cmd_rm(cmd + 3);
+    else if (strncmp(cmd, "cp ", 3) == 0) cmd_cp(cmd + 3);
+    else if (strncmp(cmd, "mv ", 3) == 0) cmd_mv(cmd + 3);
+    else if (strncmp(cmd, "hexdump ", 8) == 0) cmd_hexdump(cmd + 8);
     else if (strcmp(cmd, "ls") == 0) tmpfs_list();
     else if (strcmp(cmd, "reboot") == 0) cmd_reboot();
+    else if (strcmp(cmd, "shutdown") == 0) cmd_shutdown();
     else if (strncmp(cmd, "color ", 6) == 0) cmd_color(cmd + 6);
     else if (strncmp(cmd, "create ", 7) == 0) cmd_create_process(cmd + 7);
     else if (strcmp(cmd, "ipc") == 0) cmd_ipc_test();
+    else if (strcmp(cmd, "date") == 0) cmd_date();
+    else if (strcmp(cmd, "whoami") == 0) cmd_whoami();
+    else if (strcmp(cmd, "pwd") == 0) cmd_pwd();
+    else if (strncmp(cmd, "calc ", 5) == 0) cmd_calc(cmd + 5);
+    else if (strcmp(cmd, "history") == 0) cmd_history();
+    else if (strcmp(cmd, "reset") == 0) cmd_reset();
+    else if (strcmp(cmd, "beep") == 0) cmd_beep();
+    else if (strcmp(cmd, "about") == 0) cmd_about();
     else {
         vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
         vga_printf("Unknown command: %s\n", cmd);
@@ -239,6 +406,9 @@ static void process_command(const char* cmd) {
 void shell_init(void) {
     cmd_len = 0;
     memset(cmd_buf, 0, CMD_BUF_SIZE);
+    memset(history, 0, sizeof(history));
+    history_count = 0;
+    history_pos = 0;
 }
 
 void shell_run(void) {

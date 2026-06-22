@@ -5,7 +5,7 @@
 [ORG 0x7C00]
 
 KERNEL_OFFSET equ 0x1000
-SECTORS_TO_READ equ 30
+SECTORS_TO_READ equ 40
 
 start:
     xor ax, ax
@@ -102,7 +102,7 @@ init_pm:
     jmp KERNEL_OFFSET
 
 BOOT_DRIVE: db 0
-msg_boot:   db "DanyaOS v1.1.0 booting...", 13, 10, 0
+msg_boot:   db "DanyaOS v1.1.1 booting...", 13, 10, 0
 msg_load:   db "Loading kernel...", 13, 10, 0
 msg_disk_err: db "Disk read error!", 13, 10, 0
 
