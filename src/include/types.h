@@ -29,7 +29,7 @@ typedef uint8_t bool;
 #define KERNEL_BASE 0xC0000000
 
 typedef struct {
-    uint32_t ds;
+    uint32_t gs, fs, es, ds;
     uint32_t edi, esi, ebp, esp;
     uint32_t ebx, edx, ecx, eax;
     uint32_t int_no, err_code;

@@ -16,12 +16,27 @@ void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
     idt[num].flags     = flags;
 }
 
+static void pic_remap(void) {
+    outb(0x20, 0x11); outb(0xA0, 0x11);
+    io_wait();
+    outb(0x21, 0x20); outb(0xA1, 0x28);
+    io_wait();
+    outb(0x21, 0x04); outb(0xA1, 0x02);
+    io_wait();
+    outb(0x21, 0x01); outb(0xA1, 0x01);
+    io_wait();
+    outb(0x21, 0x00); outb(0xA1, 0x00);
+    io_wait();
+}
+
 void idt_init(void) {
     idt_ptr.limit = sizeof(idt) - 1;
     idt_ptr.base  = (uint32_t)&idt;
 
     memset(&idt, 0, sizeof(idt_entry_t) * 256);
     memset(&isr_handlers, 0, sizeof(isr_handler_t) * 256);
+
+    pic_remap();
 
     idt_set_gate(0,  (uint32_t)isr0,  0x08, 0x8E);
     idt_set_gate(1,  (uint32_t)isr1,  0x08, 0x8E);
