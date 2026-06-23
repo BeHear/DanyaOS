@@ -37,6 +37,8 @@ OBJS    = $(BUILD)/kernel_entry.o \
           $(BUILD)/fat16.o \
           $(BUILD)/ata.o \
           $(BUILD)/acpi.o \
+          $(BUILD)/cpu_sim.o \
+          $(BUILD)/editor.o \
           $(BUILD)/shell.o \
           $(BUILD)/cpuinfo.o \
           $(BUILD)/tui.o \
@@ -65,8 +67,9 @@ $(BUILD)/danyaos.iso: $(BUILD)/kernel.elf
 	cp grub.cfg $(BUILD)/isodir/boot/grub/grub.cfg
 	grub-mkrescue -o $(BUILD)/danyaos.iso $(BUILD)/isodir 2>/dev/null
 	@echo "===== ISO built: $@ ====="
-	@echo "Boot in QEMU: qemu-system-i386 -cdrom $(BUILD)/danyaos.iso"
-	@echo "Write to USB:  sudo dd if=$(BUILD)/danyaos.iso of=/dev/sdX bs=4M status=progress"
+	@echo "BIOS:   qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M"
+	@echo "UEFI:   qemu-system-x86_64 -bios /usr/share/edk2/x64/OVMF.4m.fd -cdrom $(BUILD)/danyaos.iso -m 256M"
+	@echo "USB:    sudo dd if=$(BUILD)/danyaos.iso of=/dev/sdX bs=4M status=progress"
 
 $(BUILD)/kernel_entry.o: $(SRC)/boot/kernel_entry.asm
 	@mkdir -p $(BUILD)
@@ -107,12 +110,19 @@ $(BUILD)/%.o: $(SRC)/tui/%.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD)/%.o: $(SRC)/tools/%.c
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(BUILD)/%.o: $(SRC)/libc/%.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 qemu: $(BUILD)/danyaos.iso
 	qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M
+
+qemu-uefi: $(BUILD)/danyaos.iso
+	qemu-system-x86_64 -bios /usr/share/edk2/x64/OVMF.4m.fd -cdrom $(BUILD)/danyaos.iso -m 256M
 
 qemu-usb: $(BUILD)/kernel.elf
 	qemu-system-i386 -kernel $(BUILD)/kernel.elf -m 256M
@@ -127,4 +137,4 @@ clean:
 clean-c:
 	rm -rf $(BUILD)
 
-.PHONY: all kernel qemu qemu-usb debug clean clean-c rust-lib mkbuild
+.PHONY: all kernel qemu qemu-uefi qemu-usb debug clean clean-c rust-lib mkbuild

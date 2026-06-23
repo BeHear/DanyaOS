@@ -7,6 +7,7 @@ static uint16_t* vga_buffer;
 static int vga_row;
 static int vga_col;
 static uint8_t vga_color_attr;
+static int vga_available;
 
 static inline uint8_t vga_entry_color(uint8_t fg, uint8_t bg) {
     return fg | (bg << 4);
@@ -17,6 +18,19 @@ static inline uint16_t vga_entry(char c, uint8_t color) {
 }
 
 void vga_init(void) {
+    vga_available = 0;
+
+    // Test if VGA memory is accessible (may not be on UEFI)
+    volatile uint16_t* test = (volatile uint16_t*)0xB8000;
+    uint16_t saved = *test;
+    *test = 0xA55A;
+    if (*test == 0xA55A) {
+        *test = saved;
+        vga_available = 1;
+    }
+
+    if (!vga_available) return;
+
     vga_buffer = (uint16_t*)0xB8000;
     vga_row = 0;
     vga_col = 0;
@@ -34,6 +48,7 @@ void vga_init(void) {
 }
 
 void vga_clear(void) {
+    if (!vga_available) return;
     for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) {
         vga_buffer[i] = vga_entry(' ', vga_color_attr);
     }
@@ -51,6 +66,7 @@ void vga_set_color(uint8_t fg, uint8_t bg) {
 }
 
 void vga_scroll(void) {
+    if (!vga_available) return;
     if (vga_row >= VGA_HEIGHT) {
         for (int i = 0; i < VGA_WIDTH * (VGA_HEIGHT - 1); i++) {
             vga_buffer[i] = vga_buffer[i + VGA_WIDTH];
@@ -63,6 +79,7 @@ void vga_scroll(void) {
 }
 
 void vga_putchar(char c) {
+    if (!vga_available) return;
     if (c == '\n') {
         vga_col = 0;
         vga_row++;

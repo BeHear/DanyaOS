@@ -14,6 +14,8 @@
 #include "../fs/fat16.h"
 #include "../libc/string.h"
 #include "../tui/tui.h"
+#include "../tools/cpu_sim.h"
+#include "../tools/editor.h"
 
 #define CMD_BUF_SIZE 256
 #define HISTORY_SIZE 20
@@ -39,7 +41,7 @@ static void print_prompt(void) {
 
 static void cmd_help(void) {
     vga_clear();
-    vga_puts("DanyaOS Shell v1.3 - Commands:\n\n");
+    vga_puts("DanyaOS Shell v1.3.1 - Commands:\n\n");
     vga_puts(" help        clear/cls   echo        uname\n");
     vga_puts(" mem/free    uptime      ps          create\n");
     vga_puts(" ipc         ls          touch       write\n");
@@ -47,8 +49,16 @@ static void cmd_help(void) {
     vga_puts(" hexdump     color       date        whoami\n");
     vga_puts(" pwd         calc        history     reset\n");
     vga_puts(" beep        about       tuitest     shutdown\n");
-    vga_puts(" reboot      cpuinfo     disk        mount\n");
-    vga_puts(" fdisk       fatls       fatread     fatwrite\n");
+    vga_puts(" reboot      cpuinfo     disk        fatls\n");
+    vga_puts(" fatread     fatwrite\n\n");
+    vga_puts(" CPU Simulator:\n");
+    vga_puts("  reg [name] [val]  - show/set registers\n");
+    vga_puts("  asm <instruction> - execute x86 instruction\n");
+    vga_puts("  dump             - dump all registers\n");
+    vga_puts("  mem [addr]       - dump simulated memory\n");
+    vga_puts("  reset            - reset CPU state\n\n");
+    vga_puts(" Code Editor:\n");
+    vga_puts("  dano [filename]  - open Dano editor\n");
 }
 
 static void cmd_clear(void) {
@@ -61,7 +71,7 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.3 (Microkernel)\n");
+    vga_puts("DanyaOS 1.3.1 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
     vga_puts("Build: GCC freestanding\n");
 }
@@ -336,12 +346,12 @@ static void cmd_beep(void) {
 }
 
 static void cmd_about(void) {
-    vga_puts("DanyaOS v1.3\n");
+    vga_puts("DanyaOS v1.3.1\n");
     vga_puts("A hobby microkernel OS for x86 (i386)\n");
-    vga_puts("Written in C and x86 assembly\n");
+    vga_puts("Written in C, Rust, and x86 assembly\n");
     vga_puts("Features: GDT, IDT, PMM, VMM, Heap,\n");
     vga_puts("  Scheduler, IPC, Syscalls, tmpfs,\n");
-    vga_puts("  FAT16, ATA/IDE, ACPI, Shell, TUI\n");
+    vga_puts("  FAT16, ATA/IDE, ACPI, CPU Sim, Dano\n");
     vga_puts("(c) 2025 DanyaOS Project\n");
 }
 
@@ -502,6 +512,38 @@ static void process_command(const char* cmd) {
     else if (strcmp(cmd, "fatls") == 0) cmd_fatls();
     else if (strncmp(cmd, "fatread ", 8) == 0) cmd_fatread(cmd + 8);
     else if (strncmp(cmd, "fatwrite ", 9) == 0) cmd_fatwrite(cmd + 9);
+    else if (strcmp(cmd, "dump") == 0) cpu_sim_dump();
+    else if (strncmp(cmd, "asm ", 4) == 0) cpu_sim_execute(cmd + 4);
+    else if (strncmp(cmd, "reg ", 4) == 0) {
+        char* args = cmd + 4;
+        while (*args == ' ') args++;
+        char name[16];
+        int i = 0;
+        while (*args && *args != ' ' && i < 15) name[i++] = *args++;
+        name[i] = '\0';
+        while (*args == ' ') args++;
+        if (*args) {
+            uint32_t val = 0;
+            if (args[0] == '0' && args[1] == 'x') {
+                args += 2;
+                while (*args) { val <<= 4; if (*args >= '0' && *args <= '9') val += *args - '0'; else val += *args - 'a' + 10; args++; }
+            } else {
+                while (*args >= '0' && *args <= '9') { val = val * 10 + (*args - '0'); args++; }
+            }
+            cpu_sim_set_reg(name, val);
+            vga_printf("  %s = 0x%x\n", name, val);
+        } else {
+            vga_printf("  %s = 0x%x\n", name, cpu_sim_get_reg(name));
+        }
+    }
+    else if (strcmp(cmd, "reg") == 0) cpu_sim_dump();
+    else if (strncmp(cmd, "dano", 4) == 0) {
+        char* fn = cmd + 4;
+        while (*fn == ' ') fn++;
+        if (*fn) editor_open(fn);
+        else editor_new();
+        editor_run();
+    }
     else {
         vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
         vga_printf("Unknown command: %s\n", cmd);

@@ -4,6 +4,7 @@
 #include "../include/types.h"
 
 #define MULTIBOOT_MAGIC         0x1BADB002
+#define MULTIBOOT2_MAGIC        0x36d76289
 #define MULTIBOOT_BOOT_MAGIC    0x2BADB002
 #define MULTIBOOT_MEM_INFO  0x00000002
 #define MULTIBOOT_FLAGS     (MULTIBOOT_MEM_INFO)

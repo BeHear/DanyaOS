@@ -31,7 +31,7 @@ static void print_banner(void) {
     vga_puts(" |_____/ |_| |_||_|    |____/  \\____||_| |_|\n");
     vga_puts("\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("  Microkernel v1.3\n");
+    vga_puts("  Microkernel v1.3.1\n");
     vga_puts("  (c) 2025 DanyaOS Project\n\n");
     vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
     vga_puts("  Initializing subsystems...\n");
@@ -129,7 +129,7 @@ static void init_subsystems(multiboot_info_t* mbi) {
 void kernel_main(uint32_t magic, multiboot_info_t* mbi) {
     serial_init();
 
-    if (magic != MULTIBOOT_BOOT_MAGIC) {
+    if (magic != MULTIBOOT_BOOT_MAGIC && magic != MULTIBOOT2_MAGIC) {
         serial_puts("[kernel] ERROR: not booted by Multiboot loader!\n");
         vga_puts("\n  ERROR: Not booted by GRUB/Multiboot!\n");
         vga_puts("  This OS requires GRUB to boot.\n");
