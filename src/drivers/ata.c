@@ -136,7 +136,9 @@ static int ata_read_sector(uint16_t io_base, uint32_t lba, void* buf) {
 }
 
 int ata_read_sectors(uint32_t lba, uint32_t count, void* buf) {
-    uint16_t io_base = ATA_PRIMARY_IO;
+    ata_device_t* dev = ata_get_device();
+    if (!dev) return -1;
+    uint16_t io_base = dev->io_base;
     uint8_t* ptr = (uint8_t*)buf;
 
     for (uint32_t i = 0; i < count; i++) {
@@ -172,7 +174,9 @@ static int ata_write_sector(uint16_t io_base, uint32_t lba, const void* buf) {
 }
 
 int ata_write_sectors(uint32_t lba, uint32_t count, const void* buf) {
-    uint16_t io_base = ATA_PRIMARY_IO;
+    ata_device_t* dev = ata_get_device();
+    if (!dev) return -1;
+    uint16_t io_base = dev->io_base;
     const uint8_t* ptr = (const uint8_t*)buf;
 
     for (uint32_t i = 0; i < count; i++) {

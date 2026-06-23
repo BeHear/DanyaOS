@@ -45,6 +45,17 @@ int strcmp(const char* a, const char* b) {
     return *(const uint8_t*)a - *(const uint8_t*)b;
 }
 
+int strcasecmp(const char* a, const char* b) {
+    while (*a && *b) {
+        char ca = *a, cb = *b;
+        if (ca >= 'a' && ca <= 'z') ca -= 32;
+        if (cb >= 'a' && cb <= 'z') cb -= 32;
+        if (ca != cb) return (uint8_t)ca - (uint8_t)cb;
+        a++; b++;
+    }
+    return (uint8_t)(*a) - (uint8_t)(*b);
+}
+
 int strncmp(const char* a, const char* b, size_t n) {
     while (n && *a && *a == *b) {
         a++;
@@ -87,15 +98,18 @@ char* itoa(int value, char* buf, int base) {
         return buf;
     }
 
+    uint32_t uv;
     if (value < 0 && base == 10) {
         negative = 1;
-        value = -value;
+        uv = -(uint32_t)value;
+    } else {
+        uv = (uint32_t)value;
     }
 
-    while (value) {
-        int rem = value % base;
+    while (uv) {
+        int rem = uv % base;
         *ptr++ = (rem > 9) ? ('a' + rem - 10) : ('0' + rem);
-        value /= base;
+        uv /= base;
     }
 
     if (negative) *ptr++ = '-';

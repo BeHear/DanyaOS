@@ -25,5 +25,8 @@ void timer_init(uint32_t freq) {
 }
 
 uint32_t timer_get_ticks(void) {
-    return timer_ticks;
+    cli();
+    uint32_t t = timer_ticks;
+    sti();
+    return t;
 }

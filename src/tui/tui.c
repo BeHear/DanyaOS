@@ -161,7 +161,7 @@ static void show_system_info(void) {
     uint32_t sec = ticks / 100;
     UNUSED(sec);
     const char* lines[] = {
-        "DanyaOS v1.2 (Microkernel)",
+        "DanyaOS v1.3.1 (Microkernel)",
         "Architecture: i386 (x86)",
         "VGA text mode 80x25",
         "Timer ticks active"

@@ -75,7 +75,7 @@ int acpi_init(void) {
 
     if (fadt_addr) {
         fadt = (acpi_fadt_t*)fadt_addr;
-        vga_printf("  [ OK ] ACPI: FADT found (PM1a=0x%x)\n", fadt->pm1a_control);
+        vga_printf("  [ OK ] ACPI: FADT found (PM1a=0x%x)\n", fadt->pm1a_cnt_blk);
         return 0;
     }
 
@@ -84,22 +84,22 @@ int acpi_init(void) {
 }
 
 void acpi_shutdown(void) {
-    if (fadt && fadt->pm1a_control) {
-        uint16_t val = inw(fadt->pm1a_control);
+    if (fadt && fadt->pm1a_cnt_blk) {
+        uint16_t val = inw(fadt->pm1a_cnt_blk);
         val &= 0xE3FF;
         val |= 0x2000;
-        outw(fadt->pm1a_control, val);
+        outw(fadt->pm1a_cnt_blk, val);
 
-        if (fadt->pm1b_control) {
-            val = inw(fadt->pm1b_control);
+        if (fadt->pm1b_cnt_blk) {
+            val = inw(fadt->pm1b_cnt_blk);
             val &= 0xE3FF;
             val |= 0x2000;
-            outw(fadt->pm1b_control, val);
+            outw(fadt->pm1b_cnt_blk, val);
         }
 
-        val = inw(fadt->pm1a_control);
+        val = inw(fadt->pm1a_cnt_blk);
         val |= 0x2000;
-        outw(fadt->pm1a_control, val);
+        outw(fadt->pm1a_cnt_blk, val);
     }
 
     outb(0x64, 0x64);

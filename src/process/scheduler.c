@@ -36,11 +36,23 @@ void process_create(const char* name, void (*entry)(void)) {
     strncpy(proc->name, name, 31);
     proc->name[31] = '\0';
 
-    proc->kernel_stack = (uint32_t)pmm_alloc_page() + PAGE_SIZE;
+    void* kstack_page = pmm_alloc_page();
+    if (!kstack_page) {
+        proc->state = PROC_UNUSED;
+        vga_printf("[scheduler] OOM creating process '%s'\n", name);
+        return;
+    }
+    proc->kernel_stack = (uint32_t)kstack_page + PAGE_SIZE;
     proc->user_stack = 0xBFFFF000;
 
-    uint32_t user_stack_page = (uint32_t)pmm_alloc_page();
-    vmm_map_page(proc->user_stack, user_stack_page, 0x7);
+    void* ustack_page = pmm_alloc_page();
+    if (!ustack_page) {
+        pmm_free_page(kstack_page);
+        proc->state = PROC_UNUSED;
+        vga_printf("[scheduler] OOM creating process '%s'\n", name);
+        return;
+    }
+    vmm_map_page(proc->user_stack, (uint32_t)ustack_page, 0x7);
 
     memset(&proc->cpu_state, 0, sizeof(cpu_state_t));
     proc->cpu_state.eip = (uint32_t)entry;

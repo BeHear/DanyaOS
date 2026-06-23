@@ -15,7 +15,7 @@ static uint32_t fat16_get_next_cluster(uint32_t cluster) {
     if (ata_read_sectors(fat_sector, 1, sector) != 0) return 0xFFF8;
 
     uint16_t next = *(uint16_t*)&sector[ent_offset];
-    return next & 0x0FFF;
+    return next;
 }
 
 static int fat16_read_cluster(uint32_t cluster, void* buf) {
@@ -109,6 +109,11 @@ int fat16_mount(void) {
         return -1;
     }
 
+    if (fs.bpb.sectors_per_cluster == 0) {
+        vga_puts("  [FAIL] FAT16: Invalid sectors per cluster\n");
+        return -1;
+    }
+
     fs.fat_start = fs.bpb.reserved_sectors;
     fs.root_start = fs.fat_start + fs.bpb.num_fats * fs.bpb.fat_size_16;
     fs.data_start = fs.root_start + (fs.bpb.root_entries * 32 + 511) / 512;
@@ -129,7 +134,7 @@ int fat16_read_file(const char* name, void* buf, uint32_t max_size) {
 
     fat16_file_t* file = NULL;
     for (int i = 0; i < fs.file_count; i++) {
-        if (fs.files[i].used && strcmp(fs.files[i].name, name) == 0) {
+        if (fs.files[i].used && strcasecmp(fs.files[i].name, name) == 0) {
             file = &fs.files[i];
             break;
         }
@@ -170,7 +175,7 @@ int fat16_write_file(const char* name, const void* data, uint32_t size) {
 
     // Check if file exists
     for (int i = 0; i < fs.file_count; i++) {
-        if (fs.files[i].used && strcmp(fs.files[i].name, name) == 0) {
+        if (fs.files[i].used && strcasecmp(fs.files[i].name, name) == 0) {
             // For simplicity, we just update the entry
             // A full implementation would allocate clusters in the FAT
             fs.files[i].size = size;
@@ -240,7 +245,7 @@ int fat16_delete_file(const char* name) {
                 if (ata_write_sectors(fs.root_start + s, 1, sector) != 0) return -1;
 
                 for (int j = 0; j < fs.file_count; j++) {
-                    if (fs.files[j].used && strcmp(fs.files[j].name, name) == 0) {
+                    if (fs.files[j].used && strcasecmp(fs.files[j].name, name) == 0) {
                         fs.files[j].used = 0;
                         break;
                     }
@@ -278,7 +283,7 @@ void fat16_list_files(void) {
 
 int fat16_file_exists(const char* name) {
     for (int i = 0; i < fs.file_count; i++) {
-        if (fs.files[i].used && strcmp(fs.files[i].name, name) == 0) {
+        if (fs.files[i].used && strcasecmp(fs.files[i].name, name) == 0) {
             return 1;
         }
     }

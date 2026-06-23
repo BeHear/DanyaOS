@@ -149,12 +149,12 @@ int cpu_sim_execute(const char* instruction) {
 
     while (*instruction == ' ') instruction++;
     i = 0;
-    while (*instruction && *instruction != ',' && *instruction != ' ') operand1[i++] = *instruction++;
+    while (*instruction && *instruction != ',' && *instruction != ' ' && i < 31) operand1[i++] = *instruction++;
     operand1[i] = '\0';
 
     while (*instruction == ' ' || *instruction == ',') instruction++;
     i = 0;
-    while (*instruction && *instruction != '\0') operand2[i++] = *instruction++;
+    while (*instruction && *instruction != '\0' && i < 31) operand2[i++] = *instruction++;
     operand2[i] = '\0';
 
     uint32_t op1_val, op2_val;

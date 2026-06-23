@@ -480,28 +480,28 @@ static void process_command(const char* cmd) {
 
     if (strcmp(cmd, "help") == 0 || strcmp(cmd, "?") == 0) cmd_help();
     else if (strcmp(cmd, "clear") == 0 || strcmp(cmd, "cls") == 0) cmd_clear();
-    else if (strncmp(cmd, "echo ", 5) == 0) cmd_echo(cmd + 5);
+    else if (strncmp(cmd, "echo", 4) == 0 && (cmd[4] == ' ' || cmd[4] == '\0')) cmd_echo(cmd + 4);
     else if (strcmp(cmd, "uname") == 0) cmd_uname();
     else if (strcmp(cmd, "mem") == 0 || strcmp(cmd, "free") == 0) cmd_mem();
     else if (strcmp(cmd, "uptime") == 0) cmd_uptime();
     else if (strcmp(cmd, "ps") == 0) cmd_ps();
-    else if (strncmp(cmd, "touch ", 6) == 0) cmd_touch(cmd + 6);
-    else if (strncmp(cmd, "write ", 6) == 0) cmd_write_file(cmd + 6);
-    else if (strncmp(cmd, "cat ", 4) == 0) cmd_cat(cmd + 4);
-    else if (strncmp(cmd, "rm ", 3) == 0) cmd_rm(cmd + 3);
-    else if (strncmp(cmd, "cp ", 3) == 0) cmd_cp(cmd + 3);
-    else if (strncmp(cmd, "mv ", 3) == 0) cmd_mv(cmd + 3);
-    else if (strncmp(cmd, "hexdump ", 8) == 0) cmd_hexdump(cmd + 8);
+    else if (strncmp(cmd, "touch", 5) == 0 && (cmd[5] == ' ' || cmd[5] == '\0')) cmd_touch(cmd + 5);
+    else if (strncmp(cmd, "write", 5) == 0 && (cmd[5] == ' ' || cmd[5] == '\0')) cmd_write_file(cmd + 5);
+    else if (strncmp(cmd, "cat", 3) == 0 && (cmd[3] == ' ' || cmd[3] == '\0')) cmd_cat(cmd + 3);
+    else if (strncmp(cmd, "rm", 2) == 0 && (cmd[2] == ' ' || cmd[2] == '\0')) cmd_rm(cmd + 2);
+    else if (strncmp(cmd, "cp", 2) == 0 && (cmd[2] == ' ' || cmd[2] == '\0')) cmd_cp(cmd + 2);
+    else if (strncmp(cmd, "mv", 2) == 0 && (cmd[2] == ' ' || cmd[2] == '\0')) cmd_mv(cmd + 2);
+    else if (strncmp(cmd, "hexdump", 7) == 0 && (cmd[7] == ' ' || cmd[7] == '\0')) cmd_hexdump(cmd + 7);
     else if (strcmp(cmd, "ls") == 0) tmpfs_list();
     else if (strcmp(cmd, "reboot") == 0) cmd_reboot();
     else if (strcmp(cmd, "shutdown") == 0) cmd_shutdown();
-    else if (strncmp(cmd, "color ", 6) == 0) cmd_color(cmd + 6);
-    else if (strncmp(cmd, "create ", 7) == 0) cmd_create_process(cmd + 7);
+    else if (strncmp(cmd, "color", 5) == 0 && (cmd[5] == ' ' || cmd[5] == '\0')) cmd_color(cmd + 5);
+    else if (strncmp(cmd, "create", 6) == 0 && (cmd[6] == ' ' || cmd[6] == '\0')) cmd_create_process(cmd + 6);
     else if (strcmp(cmd, "ipc") == 0) cmd_ipc_test();
     else if (strcmp(cmd, "date") == 0) cmd_date();
     else if (strcmp(cmd, "whoami") == 0) cmd_whoami();
     else if (strcmp(cmd, "pwd") == 0) cmd_pwd();
-    else if (strncmp(cmd, "calc ", 5) == 0) cmd_calc(cmd + 5);
+    else if (strncmp(cmd, "calc", 4) == 0 && (cmd[4] == ' ' || cmd[4] == '\0')) cmd_calc(cmd + 4);
     else if (strcmp(cmd, "history") == 0) cmd_history();
     else if (strcmp(cmd, "reset") == 0) cmd_reset();
     else if (strcmp(cmd, "beep") == 0) cmd_beep();
@@ -510,33 +510,41 @@ static void process_command(const char* cmd) {
     else if (strcmp(cmd, "cpuinfo") == 0) cmd_cpuinfo();
     else if (strcmp(cmd, "disk") == 0) cmd_disk();
     else if (strcmp(cmd, "fatls") == 0) cmd_fatls();
-    else if (strncmp(cmd, "fatread ", 8) == 0) cmd_fatread(cmd + 8);
-    else if (strncmp(cmd, "fatwrite ", 9) == 0) cmd_fatwrite(cmd + 9);
+    else if (strncmp(cmd, "fatread", 7) == 0 && (cmd[7] == ' ' || cmd[7] == '\0')) cmd_fatread(cmd + 7);
+    else if (strncmp(cmd, "fatwrite", 8) == 0 && (cmd[8] == ' ' || cmd[8] == '\0')) cmd_fatwrite(cmd + 8);
     else if (strcmp(cmd, "dump") == 0) cpu_sim_dump();
-    else if (strncmp(cmd, "asm ", 4) == 0) cpu_sim_execute(cmd + 4);
-    else if (strncmp(cmd, "reg ", 4) == 0) {
-        char* args = cmd + 4;
+    else if (strncmp(cmd, "asm", 3) == 0 && (cmd[3] == ' ' || cmd[3] == '\0')) cpu_sim_execute(cmd + 3);
+    else if (strncmp(cmd, "reg", 3) == 0 && (cmd[3] == ' ' || cmd[3] == '\0')) {
+        char* args = cmd + 3;
         while (*args == ' ') args++;
-        char name[16];
-        int i = 0;
-        while (*args && *args != ' ' && i < 15) name[i++] = *args++;
-        name[i] = '\0';
-        while (*args == ' ') args++;
-        if (*args) {
-            uint32_t val = 0;
-            if (args[0] == '0' && args[1] == 'x') {
-                args += 2;
-                while (*args) { val <<= 4; if (*args >= '0' && *args <= '9') val += *args - '0'; else val += *args - 'a' + 10; args++; }
+        if (*args == '\0') { cpu_sim_dump(); }
+        else {
+            char name[16];
+            int i = 0;
+            while (*args && *args != ' ' && i < 15) name[i++] = *args++;
+            name[i] = '\0';
+            while (*args == ' ') args++;
+            if (*args) {
+                uint32_t val = 0;
+                if (args[0] == '0' && args[1] == 'x') {
+                    args += 2;
+                    while (*args) {
+                        val <<= 4;
+                        if (*args >= '0' && *args <= '9') val += *args - '0';
+                        else if (*args >= 'a' && *args <= 'f') val += *args - 'a' + 10;
+                        else if (*args >= 'A' && *args <= 'F') val += *args - 'A' + 10;
+                        args++;
+                    }
+                } else {
+                    while (*args >= '0' && *args <= '9') { val = val * 10 + (*args - '0'); args++; }
+                }
+                cpu_sim_set_reg(name, val);
+                vga_printf("  %s = 0x%x\n", name, val);
             } else {
-                while (*args >= '0' && *args <= '9') { val = val * 10 + (*args - '0'); args++; }
+                vga_printf("  %s = 0x%x\n", name, cpu_sim_get_reg(name));
             }
-            cpu_sim_set_reg(name, val);
-            vga_printf("  %s = 0x%x\n", name, val);
-        } else {
-            vga_printf("  %s = 0x%x\n", name, cpu_sim_get_reg(name));
         }
     }
-    else if (strcmp(cmd, "reg") == 0) cpu_sim_dump();
     else if (strncmp(cmd, "dano", 4) == 0) {
         char* fn = cmd + 4;
         while (*fn == ' ') fn++;

@@ -35,6 +35,7 @@ static block_t* find_free_block(size_t size) {
 static block_t* expand_heap(size_t size) {
     uint32_t needed = BLOCK_SIZE + size;
     uint32_t pages = (needed + PAGE_SIZE - 1) / PAGE_SIZE;
+    uint32_t alloc_base = heap_current;
 
     for (uint32_t i = 0; i < pages; i++) {
         void* page = pmm_alloc_page();
@@ -44,7 +45,7 @@ static block_t* expand_heap(size_t size) {
         heap_current += PAGE_SIZE;
     }
 
-    block_t* block = (block_t*)(heap_current - needed);
+    block_t* block = (block_t*)(alloc_base);
     block->size = size;
     block->free = false;
     block->magic = BLOCK_MAGIC;

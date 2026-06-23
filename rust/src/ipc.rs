@@ -71,7 +71,7 @@ pub unsafe extern "C" fn rust_ipc_send(
 
     let tail = QUEUE_TAIL.load(Ordering::Relaxed);
     let next = (tail + 1) % IPC_MAX_MSGS as u32;
-    let head = QUEUE_HEAD.load(Ordering::Relaxed);
+    let head = QUEUE_HEAD.load(Ordering::Acquire);
 
     if next == head {
         // Queue full
@@ -111,29 +111,34 @@ pub unsafe extern "C" fn rust_ipc_receive(
     max_len: u32,
 ) -> i32 {
     let head = QUEUE_HEAD.load(Ordering::Relaxed);
-    let tail = QUEUE_TAIL.load(Ordering::Relaxed);
-    let mut current = head;
+    let tail = QUEUE_TAIL.load(Ordering::Acquire);
 
-    while current != tail {
-        let msg = &mut MESSAGE_QUEUE[current as usize];
-        if msg.used && (from == 0 || msg.sender == from) {
-            let copy_len = if msg.length > max_len {
-                max_len
-            } else {
-                msg.length
-            };
-
-            let src_slice = core::slice::from_raw_parts(msg.data.as_ptr(), copy_len as usize);
-            let dst_slice = core::slice::from_raw_parts_mut(buf, copy_len as usize);
-            dst_slice.copy_from_slice(src_slice);
-
-            msg.used = false;
-            let new_head = (current + 1) % IPC_MAX_MSGS as u32;
-            QUEUE_HEAD.store(new_head, Ordering::Release);
-            return copy_len as i32;
-        }
-        current = (current + 1) % IPC_MAX_MSGS as u32;
+    if head == tail {
+        return 0;
     }
 
-    0
+    let msg = &mut MESSAGE_QUEUE[head as usize];
+    if !msg.used {
+        QUEUE_HEAD.store((head + 1) % IPC_MAX_MSGS as u32, Ordering::Release);
+        return 0;
+    }
+
+    if from != 0 && msg.sender != from {
+        return 0;
+    }
+
+    let copy_len = if msg.length > max_len {
+        max_len
+    } else {
+        msg.length
+    };
+
+    let src_slice = core::slice::from_raw_parts(msg.data.as_ptr(), copy_len as usize);
+    let dst_slice = core::slice::from_raw_parts_mut(buf, copy_len as usize);
+    dst_slice.copy_from_slice(src_slice);
+
+    msg.used = false;
+    let new_head = (head + 1) % IPC_MAX_MSGS as u32;
+    QUEUE_HEAD.store(new_head, Ordering::Release);
+    copy_len as i32
 }

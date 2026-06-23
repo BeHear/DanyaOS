@@ -4,6 +4,7 @@
 #include "../drivers/timer.h"
 #include "../include/io.h"
 #include "../libc/string.h"
+#include "../memory/heap.h"
 #include "../fs/tmpfs.h"
 
 #define EDITOR_W 80
@@ -135,25 +136,37 @@ static int editor_save(void) {
         return -1;
     }
 
-    tmpfs_delete(ed.filename);
+    int buf_size = EDITOR_LINE_LEN * EDITOR_MAX_LINES;
+    char* save_buf = (char*)kmalloc(buf_size);
+    if (!save_buf) {
+        vga_puts_at(1, STATUS_Y, "Out of memory");
+        return -1;
+    }
+    uint32_t pos = 0;
 
-    uint32_t total = 0;
     for (int i = 0; i < ed.line_count; i++) {
         int len = strlen(ed.lines[i]);
+        if (pos + len + 1 > buf_size) break;
         if (len > 0) {
-            tmpfs_write(ed.filename, ed.lines[i], len);
-            total += len;
+            memcpy(save_buf + pos, ed.lines[i], len);
+            pos += len;
         }
         if (i < ed.line_count - 1) {
-            tmpfs_write(ed.filename, "\n", 1);
-            total++;
+            save_buf[pos++] = '\n';
         }
     }
+
+    tmpfs_delete(ed.filename);
+    if (pos > 0) {
+        tmpfs_write(ed.filename, save_buf, pos);
+    }
+
+    kfree(save_buf);
 
     ed.modified = 0;
     char msg[64] = "Saved ";
     char tmp[8];
-    itoa(total, tmp, 10);
+    itoa(pos, tmp, 10);
     strcat(msg, tmp);
     strcat(msg, " bytes to ");
     strcat(msg, ed.filename);

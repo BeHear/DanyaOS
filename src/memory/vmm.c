@@ -2,6 +2,7 @@
 #include "pmm.h"
 #include "../include/io.h"
 #include "../libc/string.h"
+#include "../drivers/vga.h"
 
 #define PAGE_DIRECTORY_ENTRIES 1024
 #define PAGE_TABLE_ENTRIES     1024
@@ -31,6 +32,10 @@ static page_table_entry_t* get_page_table(page_directory_entry_t* dir, uint32_t 
 
 void vmm_init(void) {
     kernel_directory = (page_directory_entry_t*)pmm_alloc_page();
+    if (!kernel_directory) {
+        vga_puts("[vmm] FATAL: cannot allocate page directory\n");
+        cli(); hlt();
+    }
     memset(kernel_directory, 0, sizeof(page_directory_entry_t) * PAGE_DIRECTORY_ENTRIES);
 
     for (uint32_t i = 0; i < 16; i++) {
