@@ -40,8 +40,9 @@ static void print_banner(void) {
 static uint32_t detect_memory_multiboot(multiboot_info_t* mbi) {
     if (!(mbi->flags & MULTIBOOT_FLAG_MEM)) return 16 * 1024 * 1024;
 
-    uint32_t upper_mem_kb = mbi->mem_upper;
-    uint32_t total = (upper_mem_kb + 1024) * 1024;
+    uint64_t upper_mem_kb = mbi->mem_upper;
+    uint64_t total = (upper_mem_kb + 1024) * 1024;
+    if (total > 0xFFFFFFFF) total = 0xFFFFFFFF;
 
     vga_printf("  [ OK ] Multiboot: %u KB lower, %u KB upper\n",
                mbi->mem_lower, mbi->mem_upper);

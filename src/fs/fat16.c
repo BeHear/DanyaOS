@@ -215,6 +215,7 @@ int fat16_write_file(const char* name, const void* data, uint32_t size) {
                 if (fs.file_count < FAT16_MAX_FILES) {
                     fat16_file_t* file = &fs.files[fs.file_count];
                     strncpy(file->name, name, 12);
+                    file->name[12] = '\0';
                     file->size = size;
                     file->first_cluster = 0;
                     file->attr = 0x20;

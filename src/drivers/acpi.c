@@ -53,7 +53,7 @@ int acpi_init(void) {
 
     // Scan BIOS ROM area
     if (!rsdp_addr)
-        rsdp_addr = find_rsdp_in_range(0xE0000, 0x1FFFF);
+        rsdp_addr = find_rsdp_in_range(0xE0000, 0x20000);
 
     if (!rsdp_addr) {
         vga_puts("  [SKIP] ACPI: RSDP not found\n");
@@ -90,7 +90,7 @@ void acpi_shutdown(void) {
         }
     }
 
-    outb(0x64, 0x64);
+    outb(0x64, 0xFE);
     cli();
     hlt();
 }

@@ -146,8 +146,8 @@ page_directory_entry_t* vmm_create_directory(void) {
 }
 
 void vmm_free_directory(page_directory_entry_t* dir) {
-    for (uint32_t i = 0; i < PAGE_DIRECTORY_ENTRIES; i++) {
-        if (dir[i].present && dir[i].user) {
+    for (uint32_t i = 16; i < PAGE_DIRECTORY_ENTRIES; i++) {
+        if (dir[i].present) {
             page_table_entry_t* table = (page_table_entry_t*)(dir[i].table << 12);
             for (uint32_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
                 if (table[j].present) {

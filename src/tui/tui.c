@@ -75,7 +75,7 @@ static void clear_area(int x, int y, int w, int h, uint8_t bg) {
 }
 
 static void draw_menu(void) {
-    int mx = 20, my = 3, mw = 40, mh = 18;
+    int mx = 20, my = 3, mw = 40, mh = 20;
 
     clear_area(mx - 1, my - 1, mw + 2, mh + 2, VGA_BLACK);
     draw_box(mx, my, mw, mh, VGA_WHITE, VGA_BLUE);

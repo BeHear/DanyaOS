@@ -424,12 +424,14 @@ static void cmd_fatread(const char* name) {
     while (*name == ' ') name++;
     if (*name == '\0') { vga_puts("Usage: fatread <filename>\n"); return; }
 
-    char buf[4096];
+    char* buf = (char*)kmalloc(4096);
+    if (!buf) { vga_puts("Out of memory\n"); return; }
     int len = fat16_read_file(name, buf, 4095);
-    if (len < 0) { vga_printf("File not found: %s\n", name); return; }
+    if (len < 0) { kfree(buf); vga_printf("File not found: %s\n", name); return; }
     buf[len] = '\0';
     vga_puts(buf);
     vga_putchar('\n');
+    kfree(buf);
 }
 
 static void cmd_fatwrite(const char* args) {

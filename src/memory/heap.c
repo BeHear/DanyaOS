@@ -97,7 +97,7 @@ void heap_init(void) {
 }
 
 void* kmalloc(size_t size) {
-    if (size == 0) return NULL;
+    if (size == 0 || size > 0xFFFFFFFC) return NULL;
     size = ALIGN4(size);
 
     block_t* block = find_free_block(size);
@@ -124,8 +124,9 @@ void* kmalloc(size_t size) {
 }
 
 void* kmalloc_aligned(size_t size) {
-    if (size == 0) return NULL;
-    uint32_t pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+    if (size == 0 || size > 0xFFFFFFFC) return NULL;
+    uint32_t total = BLOCK_SIZE + ALIGN4(size);
+    uint32_t pages = (total + PAGE_SIZE - 1) / PAGE_SIZE;
 
     uint32_t base = heap_current;
     for (uint32_t i = 0; i < pages; i++) {
@@ -135,7 +136,25 @@ void* kmalloc_aligned(size_t size) {
         memset((void*)heap_current, 0, PAGE_SIZE);
         heap_current += PAGE_SIZE;
     }
-    return (void*)base;
+
+    block_t* block = (block_t*)base;
+    block->size = pages * PAGE_SIZE - BLOCK_SIZE;
+    block->free = false;
+    block->magic = BLOCK_MAGIC;
+    block->next = NULL;
+    block->prev = NULL;
+
+    // Link into heap list so kfree/krealloc work
+    if (heap_head) {
+        block_t* last = heap_head;
+        while (last->next) last = last->next;
+        last->next = block;
+        block->prev = last;
+    } else {
+        heap_head = block;
+    }
+
+    return (void*)(base + BLOCK_SIZE);
 }
 
 void kfree(void* ptr) {
