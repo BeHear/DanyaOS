@@ -52,6 +52,7 @@
 
 /* DCFG bits */
 #define NE2000_DCFG_WTS     0x01  /* Word Transfer Select */
+#define NE2000_DCFG_BOS     0x02  /* Byte Order Select (1=little-endian/x86) */
 #define NE2000_DCFG_AR      0x10  /* Auto-Init Remote */
 #define NE2000_DCFG_LS      0x20  /* Loopback Select */
 

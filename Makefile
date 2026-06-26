@@ -127,17 +127,19 @@ $(BUILD)/%.o: $(SRC)/net/%.c
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+QEMU_NET = -nic model=ne2k_isa
+
 qemu: $(BUILD)/danyaos.iso
-	qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M
+	qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M $(QEMU_NET)
 
 qemu-uefi: $(BUILD)/danyaos.iso
-	qemu-system-x86_64 -bios /usr/share/edk2/x64/OVMF.4m.fd -cdrom $(BUILD)/danyaos.iso -m 256M
+	qemu-system-x86_64 -bios /usr/share/edk2/x64/OVMF.4m.fd -cdrom $(BUILD)/danyaos.iso -m 256M $(QEMU_NET)
 
 qemu-usb: $(BUILD)/kernel.elf
-	qemu-system-i386 -kernel $(BUILD)/kernel.elf -m 256M
+	qemu-system-i386 -kernel $(BUILD)/kernel.elf -m 256M $(QEMU_NET)
 
 debug: $(BUILD)/danyaos.iso
-	qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M -s -S &
+	qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M $(QEMU_NET) -s -S &
 
 clean:
 	rm -rf $(BUILD)

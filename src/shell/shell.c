@@ -639,7 +639,7 @@ static void cmd_ping(const char* args) {
         } else if (ms == -2) {
             vga_printf("  Request timeout (400ms)\n");
         } else {
-            vga_printf("  64 bytes: time=%d ms\n", ms * 5);
+            vga_printf("  64 bytes: time=%d ms\n", ms * 10);
         }
         for (volatile int j = 0; j < 200000; j++);
     }

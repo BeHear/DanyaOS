@@ -88,6 +88,8 @@ uint16_t tcp_checksum(const uint8_t* src_ip, const uint8_t* dst_ip, const uint8_
 
 // ICMP
 int  net_ping(uint32_t ip);
+extern volatile uint32_t icmp_recv_count;
+extern volatile uint8_t last_icmp_type;
 
 // TCP
 int  tcp_connect(const char* host, uint16_t port);

@@ -2,6 +2,7 @@
 #include "../include/io.h"
 #include "../kernel/idt.h"
 #include "../drivers/vga.h"
+#include "../drivers/serial.h"
 #include "../drivers/timer.h"
 #include "../libc/string.h"
 
@@ -12,7 +13,16 @@ static inline void ne_outb(uint8_t reg, uint8_t val) { outb(io_base + reg, val);
 static inline uint8_t ne_inb(uint8_t reg) { return inb(io_base + reg); }
 
 /* --- Remote DMA (ASIC port at 0x10) --- */
+/* Mask NE2000 IRQ in PIC during polling to prevent IRQ handler stealing ISR bits */
+#define NE2000_IRQ_MASK  (1 << NE2000_IRQ)
+
+/* Perform a DMA write: clear RDC → start → transfer → wait for RDC.
+   NE2000 IRQ is masked throughout to prevent the IRQ handler from clearing RDC. */
 static void ne_dma_write(uint16_t nic_addr, const uint8_t* src, uint16_t len) {
+    uint8_t pic_mask = inb(0x21);
+    outb(0x21, pic_mask | NE2000_IRQ_MASK);
+
+    ne_outb(NE2000_REG_ISR, NE2000_ISR_RDC);   /* clear stale RDC */
     ne_outb(NE2000_REG_RSARLO, (uint8_t)(nic_addr & 0xFF));
     ne_outb(NE2000_REG_RSARHI, (uint8_t)(nic_addr >> 8));
     ne_outb(NE2000_REG_RCNTLO, (uint8_t)(len & 0xFF));
@@ -31,9 +41,15 @@ static void ne_dma_write(uint16_t nic_addr, const uint8_t* src, uint16_t len) {
             break;
         }
     }
+    outb(0x21, pic_mask);
 }
 
+/* Perform a DMA read: clear RDC → start → transfer → wait for RDC. */
 static void ne_dma_read(uint16_t nic_addr, uint8_t* dst, uint16_t len) {
+    uint8_t pic_mask = inb(0x21);
+    outb(0x21, pic_mask | NE2000_IRQ_MASK);
+
+    ne_outb(NE2000_REG_ISR, NE2000_ISR_RDC);   /* clear stale RDC */
     ne_outb(NE2000_REG_RSARLO, (uint8_t)(nic_addr & 0xFF));
     ne_outb(NE2000_REG_RSARHI, (uint8_t)(nic_addr >> 8));
     ne_outb(NE2000_REG_RCNTLO, (uint8_t)(len & 0xFF));
@@ -46,11 +62,19 @@ static void ne_dma_read(uint16_t nic_addr, uint8_t* dst, uint16_t len) {
         dst[i * 2] = (uint8_t)(w & 0xFF);
         if (i * 2 + 1 < len) dst[i * 2 + 1] = (uint8_t)(w >> 8);
     }
+    for (int i = 0; i < 100000; i++) {
+        if (ne_inb(NE2000_REG_ISR) & NE2000_ISR_RDC) {
+            ne_outb(NE2000_REG_ISR, NE2000_ISR_RDC);
+            break;
+        }
+    }
+    outb(0x21, pic_mask);
 }
 
 static void ne_irq_handler(stack_state_t* state) {
     UNUSED(state);
     uint8_t isr = ne_inb(NE2000_REG_ISR);
+    serial_puts("[ne] IRQ isr=0x"); serial_puts_hex(isr); serial_puts("\n");
     ne_outb(NE2000_REG_ISR, isr);
 }
 
@@ -64,29 +88,29 @@ void ne2000_init(void) {
     /* Stop */
     ne_outb(NE2000_REG_CR, NE2000_CR_STP);
     for (volatile int i = 0; i < 1000; i++);
+
+    /* Set MAC (should match QEMU command line: mac=52:54:00:12:34:56) */
+    mac_addr[0]=0x52; mac_addr[1]=0x54; mac_addr[2]=0x00;
+    mac_addr[3]=0x12; mac_addr[4]=0x34; mac_addr[5]=0x56;
+
     /* Start */
     ne_outb(NE2000_REG_CR, NE2000_CR_STA);
     for (volatile int i = 0; i < 1000; i++);
 
-    mac_addr[0]=0x52; mac_addr[1]=0x54; mac_addr[2]=0x00;
-    mac_addr[3]=0x12; mac_addr[4]=0x34; mac_addr[5]=0x56;
-
-    /* Page 1: set MAC and CURR */
+    /* Page 1: set PAR and CURR */
     ne_outb(NE2000_REG_CR, NE2000_CR_STA | NE2000_CR_PAGE1);
     for (int i = 0; i < 6; i++)
         ne_outb(NE2000_REG_PAR0 + i, mac_addr[i]);
     ne_outb(NE2000_REG_CURR, NE2000_BUF_PAGE_START + 1);
 
-    /* Page 0 */
+    /* Page 0: set buffer registers */
     ne_outb(NE2000_REG_CR, NE2000_CR_STA | NE2000_CR_PAGE0);
-
-    /* Buffer */
     ne_outb(NE2000_REG_PSTART, NE2000_BUF_PAGE_START);
     ne_outb(NE2000_REG_PSTOP,  NE2000_BUF_PAGE_STOP);
     ne_outb(NE2000_REG_BNDRY,  NE2000_BUF_PAGE_START);
 
-    /* DCFG: word mode (WTS=1), auto-init, little-endian */
-    ne_outb(NE2000_REG_DCFG, NE2000_DCFG_WTS | NE2000_DCFG_AR | NE2000_DCFG_LS);
+    /* DCFG: word mode (WTS=1), little-endian (BOS=1), auto-init */
+    ne_outb(NE2000_REG_DCFG, NE2000_DCFG_WTS | NE2000_DCFG_BOS | NE2000_DCFG_AR | NE2000_DCFG_LS);
 
     /* RCR: accept broadcast */
     ne_outb(NE2000_REG_RXCR, NE2000_RCR_AB);
@@ -118,7 +142,13 @@ void ne2000_send(const uint8_t* buf, uint16_t len) {
     uint16_t tx_offset = NE2000_TX_PAGE * NE2000_PAGE_SIZE;
     ne_dma_write(tx_offset, buf, len);
 
-    /* Set TPSR (offset 0x04) and TX byte count (offsets 0x05/0x06) */
+    /* NE2000 IRQ is now unmasked (ne_dma_write restored it).
+       Mask it for PTX polling. */
+    uint8_t pic_mask = inb(0x21);
+    outb(0x21, pic_mask | NE2000_IRQ_MASK);
+    ne_outb(NE2000_REG_ISR, NE2000_ISR_PTX);
+
+    /* Set TPSR and TX byte count */
     ne_outb(NE2000_REG_TPSR, NE2000_TX_PAGE);
     ne_outb(NE2000_REG_TCNTLO, (uint8_t)(len & 0xFF));
     ne_outb(NE2000_REG_TCNTHI, (uint8_t)(len >> 8));
@@ -130,9 +160,16 @@ void ne2000_send(const uint8_t* buf, uint16_t len) {
     for (int i = 0; i < 100000; i++) {
         if (ne_inb(NE2000_REG_ISR) & NE2000_ISR_PTX) {
             ne_outb(NE2000_REG_ISR, NE2000_ISR_PTX);
+            outb(0x21, pic_mask);
             return;
         }
     }
+    outb(0x21, pic_mask);
+    serial_puts("[ne] TX TIMEOUT isr=");
+    serial_puts_hex(ne_inb(NE2000_REG_ISR));
+    serial_puts(" cr=");
+    serial_puts_hex(ne_inb(NE2000_REG_CR));
+    serial_puts("\n");
 }
 
 int ne2000_poll(ne2000_rx_packet_t* pkt) {
@@ -143,7 +180,11 @@ int ne2000_poll(ne2000_rx_packet_t* pkt) {
     uint8_t curr = ne_inb(NE2000_REG_CURR);
     ne_outb(NE2000_REG_CR, NE2000_CR_STA | NE2000_CR_PAGE0);
 
-    if (curr == bndry) return 0;
+    if (curr == bndry) {
+        uint8_t isr = ne_inb(NE2000_REG_ISR);
+        if (isr) { serial_puts("[ne] ISR bits="); serial_puts_hex(isr); serial_puts("\n"); }
+        return 0;
+    }
 
     uint8_t page = bndry + 1;
     if (page >= NE2000_BUF_PAGE_STOP) page = NE2000_BUF_PAGE_START;
@@ -155,15 +196,15 @@ int ne2000_poll(ne2000_rx_packet_t* pkt) {
     uint16_t pkt_len = hdr[2] | ((uint16_t)hdr[3] << 8);
     uint8_t  next_pge = hdr[1];
 
-    if (pkt_len < 4) { pkt->len = 0; ne_outb(NE2000_REG_BNDRY, page); return 0; }
+    if (pkt_len < 4) { /* garbage page, NIC hasn't written here yet */ return 0; }
     uint16_t data_len = pkt_len - 4;
     if (data_len > NE2000_MTU) data_len = NE2000_MTU;
 
     if (data_len > 0) ne_dma_read(nic_addr + 4, pkt->data, data_len);
     pkt->len = data_len;
 
-    uint8_t new_bndry = (next_pge >= NE2000_BUF_PAGE_START && next_pge < NE2000_BUF_PAGE_STOP)
-                        ? (next_pge - 1) : (curr - 1);
+    uint8_t new_bndry = (next_pge > NE2000_BUF_PAGE_START)
+                        ? (next_pge - 1) : (NE2000_BUF_PAGE_STOP - 1);
     ne_outb(NE2000_REG_BNDRY, new_bndry);
     return 1;
 }

@@ -185,6 +185,20 @@ void kernel_main(uint32_t magic, multiboot_info_t* mbi) {
     init_subsystems(mbi);
     serial_puts("[kernel] subsystems initialized\n");
 
+    /* Auto-test: ping 10.0.2.2 */
+    serial_puts("[nettest] PING 10.0.2.2 ... ");
+    { int r = net_ping(0x0A000202);
+      serial_puts(r >= 0 ? "OK\n" : "FAIL\n"); }
+
+    /* Auto-test: ping 8.8.8.8 */
+    serial_puts("[nettest] PING 8.8.8.8 ... ");
+    { int r = net_ping(0x08080808);
+      serial_puts(r >= 0 ? "OK\n" : "FAIL\n"); }
+
+    serial_puts("[nettest] icmp_recv="); serial_puts_hex(icmp_recv_count);
+    serial_puts(" last_type="); serial_puts_hex(last_icmp_type);
+    serial_puts("\n");
+    serial_puts("[nettest] done\n");
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
     vga_puts("\n  All subsystems initialized successfully!\n\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
