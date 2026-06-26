@@ -18,7 +18,7 @@ static void editor_draw(void) {
     // Title bar (row 0)
     vga_set_color(VGA_BLACK, VGA_LIGHT_CYAN);
     for (int i = 0; i < EDITOR_W; i++) vga_putchar_at(i, 0, ' ');
-    vga_puts_at(2, 0, "DANO Editor v1.3.2");
+    vga_puts_at(2, 0, "DANO Editor v1.3.5");
     if (ed.filename[0]) {
         vga_puts_at(EDITOR_W - strlen(ed.filename) - 4, 0, ed.filename);
     }
@@ -260,6 +260,6 @@ void editor_run(void) {
     }
 
     keyboard_flush();
-    vga_clear();
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_clear();
 }

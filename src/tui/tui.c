@@ -158,7 +158,7 @@ static void show_file_info(void) {
 
 static void show_system_info(void) {
     const char* lines[] = {
-        "DanyaOS v1.3.2 (Microkernel)",
+        "DanyaOS v1.3.5 (Microkernel)",
         "Architecture: i386 (x86)",
         "VGA text mode 80x25",
         "Timer ticks active"
@@ -167,6 +167,8 @@ static void show_system_info(void) {
 }
 
 void tui_test(void) {
+    keyboard_flush();
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_clear();
     selected = 0;
 
@@ -174,15 +176,16 @@ void tui_test(void) {
         draw_menu();
 
         uint8_t sc = keyboard_get_scancode();
+        keyboard_flush();
 
         if (sc == SCAN_ESC) {
-            keyboard_flush();
             break;
         } else if (sc == SCAN_UP) {
             if (selected > 0) selected--;
         } else if (sc == SCAN_DOWN) {
             if (selected < MENU_ITEMS - 1) selected++;
         } else if (sc == SCAN_ENTER) {
+            vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
             vga_clear();
             switch (selected) {
                 case 0: show_memory_info(); break;
@@ -190,16 +193,18 @@ void tui_test(void) {
                 case 2: show_file_info(); break;
                 case 3: show_system_info(); break;
                 case 4:
-                    keyboard_flush();
-                    vga_clear();
                     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+                    vga_clear();
                     return;
             }
             keyboard_get_scancode();
+            keyboard_flush();
+            vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
             vga_clear();
         }
     }
 
-    vga_clear();
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    vga_clear();
 }
+

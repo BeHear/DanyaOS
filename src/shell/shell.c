@@ -14,6 +14,7 @@
 #include "../fs/fat16.h"
 #include "../libc/string.h"
 #include "../tui/tui.h"
+#include "../tools/acpi_sim.h"
 #include "../tools/cpu_sim.h"
 #include "../tools/editor.h"
 
@@ -41,7 +42,7 @@ static void print_prompt(void) {
 
 static void cmd_help(void) {
     vga_clear();
-    vga_puts("DanyaOS Shell v1.3.2 - Commands:\n\n");
+    vga_puts("DanyaOS Shell v1.3.5 - Commands:\n\n");
     vga_puts(" help        clear/cls   echo        uname\n");
     vga_puts(" mem/free    uptime      ps          create\n");
     vga_puts(" ipc         ls          touch       write\n");
@@ -50,7 +51,7 @@ static void cmd_help(void) {
     vga_puts(" pwd         calc        history     reset\n");
     vga_puts(" beep        about       tuitest     shutdown\n");
     vga_puts(" reboot      cpuinfo     disk        fatls\n");
-    vga_puts(" fatread     fatwrite\n\n");
+    vga_puts(" fatread     fatwrite    sacpi\n\n");
     vga_puts(" CPU Simulator:\n");
     vga_puts("  reg [name] [val]  - show/set registers\n");
     vga_puts("  asm <instruction> - execute x86 instruction\n");
@@ -71,7 +72,7 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.3.2 (Microkernel)\n");
+    vga_puts("DanyaOS 1.3.5 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
     vga_puts("Build: GCC freestanding\n");
 }
@@ -354,7 +355,7 @@ static void cmd_beep(void) {
 }
 
 static void cmd_about(void) {
-    vga_puts("DanyaOS v1.3.2\n");
+    vga_puts("DanyaOS v1.3.5\n");
     vga_puts("A hobby microkernel OS for x86 (i386)\n");
     vga_puts("Written in C, Rust, and x86 assembly\n");
     vga_puts("Features: GDT, IDT, PMM, VMM, Heap,\n");
@@ -524,10 +525,11 @@ static void process_command(const char* cmd) {
     else if (strcmp(cmd, "fatls") == 0) cmd_fatls();
     else if (strncmp(cmd, "fatread", 7) == 0 && (cmd[7] == ' ' || cmd[7] == '\0')) cmd_fatread(cmd + 7);
     else if (strncmp(cmd, "fatwrite", 8) == 0 && (cmd[8] == ' ' || cmd[8] == '\0')) cmd_fatwrite(cmd + 8);
+    else if (strncmp(cmd, "sacpi", 5) == 0 && (cmd[5] == ' ' || cmd[5] == '\0')) acpi_sim_execute_command(cmd + 5);
     else if (strcmp(cmd, "dump") == 0) cpu_sim_dump();
     else if (strncmp(cmd, "asm", 3) == 0 && (cmd[3] == ' ' || cmd[3] == '\0')) cpu_sim_execute(cmd + 3);
     else if (strncmp(cmd, "reg", 3) == 0 && (cmd[3] == ' ' || cmd[3] == '\0')) {
-        char* args = cmd + 3;
+        const char* args = cmd + 3;
         while (*args == ' ') args++;
         if (*args == '\0') { cpu_sim_dump(); }
         else {
@@ -558,7 +560,7 @@ static void process_command(const char* cmd) {
         }
     }
     else if (strncmp(cmd, "dano", 4) == 0 && (cmd[4] == ' ' || cmd[4] == '\0')) {
-        char* fn = cmd + 4;
+        const char* fn = cmd + 4;
         while (*fn == ' ') fn++;
         if (*fn) editor_open(fn);
         else editor_new();

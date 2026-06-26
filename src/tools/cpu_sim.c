@@ -160,6 +160,8 @@ int cpu_sim_execute(const char* instruction) {
     uint32_t op1_val, op2_val;
     int op1_type = parse_operand(operand1, &op1_val);
     int op2_type = parse_operand(operand2, &op2_val);
+    UNUSED(op1_type);
+    UNUSED(op2_type);
 
     cpu.eip++;
 

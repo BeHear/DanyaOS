@@ -16,6 +16,7 @@
 #include "../fs/tmpfs.h"
 #include "../fs/fat16.h"
 #include "../shell/shell.h"
+#include "../tools/acpi_sim.h"
 #include "../include/io.h"
 #include "../include/multiboot.h"
 #include "../libc/string.h"
@@ -31,7 +32,7 @@ static void print_banner(void) {
     vga_puts(" |_____/ |_| |_||_|    |____/  \\____||_| |_|\n");
     vga_puts("\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("  Microkernel v1.3.2\n");
+    vga_puts("  Microkernel v1.3.5\n");
     vga_puts("  (c) 2025 DanyaOS Project\n\n");
     vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
     vga_puts("  Initializing subsystems...\n");
@@ -110,6 +111,10 @@ static void init_subsystems(multiboot_info_t* mbi) {
 
     serial_puts("[init] ACPI...");
     acpi_init();
+    serial_puts(" done\n");
+
+    serial_puts("[init] ACPI sim...");
+    acpi_sim_init();
     serial_puts(" done\n");
 
     serial_puts("[init] tmpfs...");

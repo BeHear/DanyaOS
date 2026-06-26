@@ -9,3 +9,4 @@ rust/target/
 *.swp
 *~
 .DS_Store
+.aider*

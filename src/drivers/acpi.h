@@ -67,5 +67,7 @@ typedef struct {
 int  acpi_init(void);
 void acpi_shutdown(void);
 void acpi_reboot(void);
+acpi_rsdp_t* acpi_get_rsdp(void);
+acpi_fadt_t* acpi_get_fadt(void);
 
 #endif

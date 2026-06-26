@@ -1,4 +1,4 @@
-# DanyaOS v1.3.2
+# DanyaOS v1.3.5
 
 A hobby microkernel operating system written in C, Rust, and x86 assembly.
 
@@ -111,6 +111,7 @@ disk              - ATA disk information
 fatls             - list FAT16 files
 fatread <file>    - read FAT16 file
 fatwrite <file> <data> - write FAT16 file
+sacpi <args>      - simulated ACPI console
 ```
 
 ## Running on Real Hardware

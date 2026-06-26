@@ -80,6 +80,12 @@ static void keyboard_handler(stack_state_t* state) {
         return;
     }
 
+    bool is_extended = false;
+    if (extended_prefix) {
+        is_extended = true;
+        extended_prefix = 0;
+    }
+
     if (scancode == 0x1D) { ctrl_pressed = 1; return; }
     if (scancode == 0x9D) { ctrl_pressed = 0; return; }
 
@@ -99,17 +105,10 @@ static void keyboard_handler(stack_state_t* state) {
 
     if (scancode & 0x80) return;
 
-    if (extended_prefix) {
-        extended_prefix = 0;
-        if (scancode == 0x1D) { ctrl_pressed = 1; return; }
-        if (scancode == 0x9D) { ctrl_pressed = 0; return; }
-        scancode_buffer = scancode;
-        scancode_available = true;
-        return;
-    }
-
     scancode_buffer = scancode;
     scancode_available = true;
+
+    if (is_extended) return;
 
     char c = shift_pressed ? scancode_to_shift[scancode] : scancode_to_ascii[scancode];
 

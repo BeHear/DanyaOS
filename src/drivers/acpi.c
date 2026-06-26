@@ -3,6 +3,7 @@
 #include "../drivers/vga.h"
 #include "../libc/string.h"
 
+static acpi_rsdp_t* rsdp = NULL;
 static acpi_fadt_t* fadt = NULL;
 
 static uint32_t find_rsdp_in_range(uint32_t start, uint32_t length) {
@@ -45,7 +46,9 @@ int acpi_init(void) {
     uint32_t rsdp_addr = 0;
 
     // Check EBDA segment from BIOS data area
-    uint16_t* ebda_ptr = (uint16_t*)0x40E;
+    uint32_t ebda_addr = 0x40E;
+    __asm__("" : "+r"(ebda_addr));
+    volatile uint16_t* ebda_ptr = (volatile uint16_t*)ebda_addr;
     if (*ebda_ptr) {
         uint32_t ebda = (uint32_t)(*ebda_ptr) << 4;
         rsdp_addr = find_rsdp_in_range(ebda, 0x400);
@@ -60,7 +63,7 @@ int acpi_init(void) {
         return -1;
     }
 
-    acpi_rsdp_t* rsdp = (acpi_rsdp_t*)rsdp_addr;
+    rsdp = (acpi_rsdp_t*)rsdp_addr;
     uint32_t fadt_addr = find_table(rsdp->rsdt_addr, "FACP");
 
     if (fadt_addr) {
@@ -103,4 +106,12 @@ void acpi_reboot(void) {
     outb(0x64, 0xFE);
     cli();
     hlt();
+}
+
+acpi_rsdp_t* acpi_get_rsdp(void) {
+    return rsdp;
+}
+
+acpi_fadt_t* acpi_get_fadt(void) {
+    return fadt;
 }
