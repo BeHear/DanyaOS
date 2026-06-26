@@ -132,9 +132,8 @@ QEMU_NET = -nic model=ne2k_isa,mac=52:54:00:12:34:56
 qemu: $(BUILD)/dosfs.iso
 	qemu-system-i386 -cdrom $(BUILD)/dosfs.iso -m 256M $(QEMU_NET)
 
-# UEFI не поддерживается — kernel 32-bit (i386), OVMF загружает в 64-bit long mode
-# qemu-uefi: $(BUILD)/dosfs.iso
-# 	qemu-system-x86_64 -bios /usr/share/edk2/x64/OVMF.4m.fd -cdrom $(BUILD)/dosfs.iso -m 256M $(QEMU_NET)
+qemu-uefi:
+	@echo "ERROR: UEFI not supported — kernel is 32-bit (i386), OVMF boots in 64-bit long mode."; exit 1
 
 qemu-usb: $(BUILD)/kernel.elf
 	qemu-system-i386 -kernel $(BUILD)/kernel.elf -m 256M $(QEMU_NET)
