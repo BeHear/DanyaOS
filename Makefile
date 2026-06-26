@@ -1,4 +1,4 @@
-# DanyaOS Microkernel - Makefile
+# DOSFS Microkernel - Makefile
 # GRUB/Multiboot-based build for real hardware boot
 
 CC      = gcc
@@ -17,7 +17,7 @@ SRC     = src
 RUST_TARGET = target-specs/i686-unknown-none.json
 
 RUST_TARGET_NAME = $(notdir $(basename $(RUST_TARGET)))
-RUST_LIB = rust/target/$(RUST_TARGET_NAME)/release/libdanyaos_kernel.a
+RUST_LIB = rust/target/$(RUST_TARGET_NAME)/release/libdosfs_kernel.a
 
 OBJS    = $(BUILD)/kernel_entry.o \
           $(BUILD)/kernel.o \
@@ -49,7 +49,7 @@ OBJS    = $(BUILD)/kernel_entry.o \
           $(BUILD)/tui.o \
           $(BUILD)/string.o
 
-all: mkbuild rust-lib $(BUILD)/danyaos.iso
+all: mkbuild rust-lib $(BUILD)/dosfs.iso
 
 kernel: mkbuild rust-lib $(BUILD)/kernel.elf
 
@@ -66,15 +66,15 @@ $(BUILD)/kernel.elf: $(OBJS) $(RUST_LIB)
 	$(LD) $(LDFLAGS) $(OBJS) $(RUST_LIB) -o $@
 	@echo "===== Kernel ELF built: $@ ====="
 
-$(BUILD)/danyaos.iso: $(BUILD)/kernel.elf
+$(BUILD)/dosfs.iso: $(BUILD)/kernel.elf
 	@mkdir -p $(BUILD)/isodir/boot/grub
-	cp $(BUILD)/kernel.elf $(BUILD)/isodir/boot/danyaos.elf
+	cp $(BUILD)/kernel.elf $(BUILD)/isodir/boot/dosfs.elf
 	cp grub.cfg $(BUILD)/isodir/boot/grub/grub.cfg
-	grub-mkrescue -o $(BUILD)/danyaos.iso $(BUILD)/isodir 2>/dev/null
+	grub-mkrescue -o $(BUILD)/dosfs.iso $(BUILD)/isodir 2>/dev/null
 	@echo "===== ISO built: $@ ====="
-	@echo "BIOS:   qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M"
-	@echo "UEFI:   qemu-system-x86_64 -bios /usr/share/edk2/x64/OVMF.4m.fd -cdrom $(BUILD)/danyaos.iso -m 256M"
-	@echo "USB:    sudo dd if=$(BUILD)/danyaos.iso of=/dev/sdX bs=4M status=progress"
+	@echo "BIOS:   qemu-system-i386 -cdrom $(BUILD)/dosfs.iso -m 256M"
+	@echo "UEFI:   qemu-system-x86_64 -bios /usr/share/edk2/x64/OVMF.4m.fd -cdrom $(BUILD)/dosfs.iso -m 256M"
+	@echo "USB:    sudo dd if=$(BUILD)/dosfs.iso of=/dev/sdX bs=4M status=progress"
 
 $(BUILD)/kernel_entry.o: $(SRC)/boot/kernel_entry.asm
 	@mkdir -p $(BUILD)
@@ -129,17 +129,17 @@ $(BUILD)/%.o: $(SRC)/net/%.c
 
 QEMU_NET = -nic model=ne2k_isa
 
-qemu: $(BUILD)/danyaos.iso
-	qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M $(QEMU_NET)
+qemu: $(BUILD)/dosfs.iso
+	qemu-system-i386 -cdrom $(BUILD)/dosfs.iso -m 256M $(QEMU_NET)
 
-qemu-uefi: $(BUILD)/danyaos.iso
-	qemu-system-x86_64 -bios /usr/share/edk2/x64/OVMF.4m.fd -cdrom $(BUILD)/danyaos.iso -m 256M $(QEMU_NET)
+qemu-uefi: $(BUILD)/dosfs.iso
+	qemu-system-x86_64 -bios /usr/share/edk2/x64/OVMF.4m.fd -cdrom $(BUILD)/dosfs.iso -m 256M $(QEMU_NET)
 
 qemu-usb: $(BUILD)/kernel.elf
 	qemu-system-i386 -kernel $(BUILD)/kernel.elf -m 256M $(QEMU_NET)
 
-debug: $(BUILD)/danyaos.iso
-	qemu-system-i386 -cdrom $(BUILD)/danyaos.iso -m 256M $(QEMU_NET) -s -S &
+debug: $(BUILD)/dosfs.iso
+	qemu-system-i386 -cdrom $(BUILD)/dosfs.iso -m 256M $(QEMU_NET) -s -S &
 
 clean:
 	rm -rf $(BUILD)

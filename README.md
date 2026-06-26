@@ -1,4 +1,4 @@
-# DanyaOS v1.4
+# DOSFS v1.4
 
 A hobby microkernel operating system written in C, Rust, and x86 assembly.
 
@@ -71,7 +71,7 @@ make qemu-usb
 
 ```bash
 make
-sudo dd if=build/danyaos.iso of=/dev/sdX bs=4M status=progress
+sudo dd if=build/dosfs.iso of=/dev/sdX bs=4M status=progress
 ```
 
 ## Shell Commands
@@ -102,7 +102,7 @@ calc <a> <op> <b> - calculator (+ - * / %%)
 history           - command history
 reset             - reset terminal
 beep              - PC speaker beep
-about             - about DanyaOS
+about             - about DOSFS
 tuitest           - TUI demo
 shutdown          - ACPI shutdown / halt
 reboot            - ACPI reboot
@@ -126,25 +126,25 @@ sacpi <args>      - simulated ACPI console
 ### Boot from USB
 
 1. Build: `make`
-2. Write to USB: `sudo dd if=build/danyaos.iso of=/dev/sdX bs=4M status=progress`
+2. Write to USB: `sudo dd if=build/dosfs.iso of=/dev/sdX bs=4M status=progress`
 3. Boot from USB in BIOS (Legacy/CSM mode)
 
 ### Boot from CD/DVD
 
 1. Build: `make`
-2. Burn `build/danyaos.iso` to CD/DVD
+2. Burn `build/dosfs.iso` to CD/DVD
 3. Boot from CD/DVD
 
 ### Boot from HDD (dual-boot)
 
 1. Build: `make`
-2. Copy `build/danyaos.iso` to a partition accessible by GRUB
-3. Add a GRUB menuentry for DanyaOS
+2. Copy `build/dosfs.iso` to a partition accessible by GRUB
+3. Add a GRUB menuentry for DOSFS
 
 ## Project Structure
 
 ```
-DanyaOS/
+DOSFS/
 ├── Makefile
 ├── grub.cfg
 ├── linker.ld
@@ -183,4 +183,4 @@ MIT License
 
 ## Author
 
-DanyaOS Project (2025)
+DOSFS Project (2025)

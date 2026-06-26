@@ -45,7 +45,7 @@ static void print_prompt(void) {
 
 static void cmd_help(void) {
     vga_clear();
-    vga_puts("DanyaOS Shell v1.4.2 - Commands:\n\n");
+    vga_puts("DOSFS Shell v1.4.2 - Commands:\n\n");
     vga_puts(" help        clear/cls   echo        uname\n");
     vga_puts(" mem/free    uptime      ps          create\n");
     vga_puts(" ipc         ls          touch       write\n");
@@ -77,7 +77,7 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.4 (Microkernel)\n");
+    vga_puts("DOSFS 1.4 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
     vga_puts("Build: GCC freestanding + NASM + Rust\n");
 }
@@ -359,7 +359,7 @@ static void cmd_date(void) {
 }
 
 static void cmd_ver(void) {
-    vga_puts("DanyaOS v1.4 (2025-06-26)\n");
+    vga_puts("DOSFS v1.4 (2025-06-26)\n");
     vga_puts("  Kernel: Microkernel with IPC\n");
     vga_puts("  Drivers: ATA/IDE, FAT16, ACPI, RTC, PCI\n");
     vga_puts("  Features: Paging, VMM, Scheduler, tmpfs\n");
@@ -372,8 +372,8 @@ static void cmd_sysinfo(void) {
     uint32_t ticks = timer_get_ticks();
     uint32_t seconds = ticks / 100;
 
-    vga_puts("===== DanyaOS System Information =====\n");
-    vga_printf("Version:     DanyaOS 1.4\n");
+    vga_puts("===== DOSFS System Information =====\n");
+    vga_printf("Version:     DOSFS 1.4\n");
     vga_printf("Arch:        i386\n");
     vga_printf("Memory:      %u KB total, %u KB used, %u KB free\n",
                total_mem / 1024, used_mem / 1024, free_mem / 1024);
@@ -492,13 +492,13 @@ static void cmd_beep(void) {
 }
 
 static void cmd_about(void) {
-    vga_puts("DanyaOS v1.4\n");
+    vga_puts("DOSFS v1.4\n");
     vga_puts("A hobby microkernel OS for x86 (i386)\n");
     vga_puts("Written in C, Rust, and x86 assembly\n");
     vga_puts("Features: GDT, IDT, PMM, VMM, Heap,\n");
     vga_puts("  Scheduler, IPC, Syscalls, tmpfs,\n");
     vga_puts("  FAT16, ATA/IDE, ACPI, CPU Sim, Dano\n");
-    vga_puts("(c) 2025 DanyaOS Project\n");
+    vga_puts("(c) 2025 DOSFS Project\n");
 }
 
 static void cmd_cpuinfo(void) {

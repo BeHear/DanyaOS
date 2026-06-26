@@ -1,4 +1,4 @@
-; DanyaOS Microkernel - Kernel Entry Point (Multiboot2)
+; DOSFS Microkernel - Kernel Entry Point (Multiboot2)
 
 [BITS 32]
 

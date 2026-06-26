@@ -1,10 +1,10 @@
 [package]
-name = "danyaos-kernel"
+name = "dosfs-kernel"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "danyaos_kernel"
+name = "dosfs_kernel"
 crate-type = ["staticlib"]
 
 [profile.dev]

@@ -37,7 +37,7 @@ static void print_banner(void) {
     vga_puts("\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_puts("  Microkernel v1.4.2\n");
-    vga_puts("  (c) 2025 DanyaOS Project\n\n");
+    vga_puts("  (c) 2025 DOSFS Project\n\n");
     vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
     vga_puts("  Initializing subsystems...\n");
 }

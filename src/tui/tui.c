@@ -79,7 +79,7 @@ static void draw_menu(void) {
 
     clear_area(mx - 1, my - 1, mw + 2, mh + 2, VGA_BLACK);
     draw_box(mx, my, mw, mh, VGA_WHITE, VGA_BLUE);
-    draw_title(mx, my, " DanyaOS TUI Test ", mw, VGA_LIGHT_CYAN, VGA_BLUE);
+    draw_title(mx, my, " DOSFS TUI Test ", mw, VGA_LIGHT_CYAN, VGA_BLUE);
     draw_hline(mx, my + 2, mw, VGA_WHITE, VGA_BLUE);
 
     vga_set_color(VGA_LIGHT_GREY, VGA_BLUE);
@@ -158,7 +158,7 @@ static void show_file_info(void) {
 
 static void show_system_info(void) {
     const char* lines[] = {
-        "DanyaOS v1.4 (Microkernel)",
+        "DOSFS v1.4 (Microkernel)",
         "Architecture: i386 (x86)",
         "VGA text mode 80x25",
         "Timer ticks active"
