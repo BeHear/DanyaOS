@@ -6,6 +6,17 @@
 #include "../memory/heap.h"
 
 /* ═══════════════════════════════════════════
+   Byte order helpers
+   ═══════════════════════════════════════════ */
+static uint16_t htons(uint16_t x) { return (x >> 8) | (x << 8); }
+static uint16_t ntohs(uint16_t x) { return (x >> 8) | (x << 8); }
+static uint32_t htonl(uint32_t x) {
+    return ((x >> 24) & 0xFF) | ((x >> 8) & 0xFF00) |
+           ((x << 8) & 0xFF0000) | ((x << 24) & 0xFF000000);
+}
+static uint32_t ntohl(uint32_t x) { return htonl(x); }
+
+/* ═══════════════════════════════════════════
    Configuration
    ═══════════════════════════════════════════ */
 static uint8_t our_ip[4]     = {10, 0, 2, 15};
@@ -67,18 +78,19 @@ int net_send_ip(const uint8_t* dst_ip, uint8_t proto,
     eth_header_t* eth = (eth_header_t*)frame;
     memcpy(eth->dst_mac, mac, 6);
     ne2000_get_mac(eth->src_mac);
-    eth->ethertype = ETH_TYPE_IP;
+    eth->ethertype = htons(ETH_TYPE_IP);
 
     ip_header_t* ip = (ip_header_t*)(frame + 14);
     memset(ip, 0, 20);
     ip->hdr_len    = 5;
-    ip->total_len  = 20 + len;
+    ip->total_len  = htons(20 + len);
     ip->ttl        = 64;
     ip->proto      = proto;
     memcpy(ip->src_ip, our_ip, 4);
     memcpy(ip->dst_ip, dst_ip, 4);
     memcpy(frame + 34, payload, len);
-    ip->checksum = ip_checksum(ip, 20);
+    ip->checksum = 0;
+    ip->checksum = ip_checksum(frame + 14, 20);
 
     ne2000_send(frame, 14 + 20 + len);
     return 0;
@@ -122,11 +134,11 @@ int arp_resolve(const uint8_t* ip, uint8_t* mac) {
     eth_header_t* e = (eth_header_t*)pkt;
     memset(e->dst_mac, 0xFF, 6);
     ne2000_get_mac(e->src_mac);
-    e->ethertype = ETH_TYPE_ARP;
+    e->ethertype = htons(ETH_TYPE_ARP);
     arp_packet_t* a = (arp_packet_t*)(pkt + 14);
-    a->hw_type = 1; a->proto_type = 0x0800;
+    a->hw_type = htons(1); a->proto_type = htons(0x0800);
     a->hw_len = 6; a->proto_len = 4;
-    a->op = 1;
+    a->op = htons(1);
     ne2000_get_mac(a->src_mac);
     memcpy(a->src_ip, our_ip, 4);
     memset(a->dst_mac, 0, 6);
@@ -134,28 +146,29 @@ int arp_resolve(const uint8_t* ip, uint8_t* mac) {
 
     arp_waiting = 1;
     ne2000_send(pkt, 42);
-    for (int i = 0; i < 200; i++) {
+    uint32_t deadline = timer_get_ticks() + 100;
+    while (arp_waiting && timer_get_ticks() < deadline) {
         net_poll();
-        if (!arp_waiting) { memcpy(mac, (const uint8_t*)arp_reply_mac, 6); arp_cache_add(ip, mac); return 1; }
-        for (volatile int j = 0; j < 5000; j++);
+        asm volatile("sti; hlt; cli");
+        net_poll(); /* Check again after hlt */
     }
+    if (!arp_waiting) { memcpy(mac, arp_reply_mac, 6); arp_cache_add(ip, mac); return 1; }
     return 0;
 }
 
 static void arp_process(const uint8_t* pkt, uint16_t len) {
     if (len < 42) return;
     arp_packet_t* a = (arp_packet_t*)(pkt + 14);
-    if (a->op == 1 && memcmp(a->dst_ip, our_ip, 4) == 0) {
-        // reply
+    if (a->op == htons(1) && memcmp(a->dst_ip, our_ip, 4) == 0) {
         uint8_t reply[42];
         eth_header_t* e = (eth_header_t*)reply;
         memcpy(e->dst_mac, a->src_mac, 6);
         ne2000_get_mac(e->src_mac);
-        e->ethertype = ETH_TYPE_ARP;
+        e->ethertype = htons(ETH_TYPE_ARP);
         arp_packet_t* r = (arp_packet_t*)(reply + 14);
-        r->hw_type = 1; r->proto_type = 0x0800;
+        r->hw_type = htons(1); r->proto_type = htons(0x0800);
         r->hw_len = 6; r->proto_len = 4;
-        r->op = 2;
+        r->op = htons(2);
         ne2000_get_mac(r->src_mac);
         memcpy(r->src_ip, our_ip, 4);
         memcpy(r->dst_mac, a->src_mac, 6);
@@ -163,9 +176,8 @@ static void arp_process(const uint8_t* pkt, uint16_t len) {
         ne2000_send(reply, 42);
         arp_cache_add(a->src_ip, a->src_mac);
     }
-    if (a->op == 2 && arp_waiting) {
-        uint8_t* dst = (uint8_t*)arp_reply_mac;
-        memcpy(dst, a->src_mac, 6);
+    if (a->op == htons(2) && arp_waiting) {
+        memcpy(arp_reply_mac, a->src_mac, 6);
         arp_cache_add(a->src_ip, a->src_mac);
         arp_waiting = 0;
     }
@@ -181,7 +193,7 @@ static volatile uint32_t ping_rtt;
 void icmp_process(const uint8_t* payload, uint16_t len, const uint8_t* src) {
     if (len < 8) return;
     icmp_header_t* icmp = (icmp_header_t*)payload;
-    if (icmp->type == 0 && icmp->id == ping_id) { ping_ok = 1; return; }
+    if (icmp->type == 0 && icmp->id == htons(ping_id)) { ping_ok = 1; return; }
     if (icmp->type == 8) {
         uint8_t buf[64];
         memset(buf, 0, 64);
@@ -200,18 +212,19 @@ int net_ping(uint32_t ip) {
     memset(pkt, 0, 64);
     icmp_header_t* icmp = (icmp_header_t*)pkt;
     icmp->type = 8; icmp->code = 0;
-    ping_id++; icmp->id = ping_id; icmp->seq = 1;
+    ping_id++; icmp->id = htons(ping_id); icmp->seq = htons(1);
     icmp->checksum = ip_checksum(pkt, 64);
 
     ping_ok = 0;
     uint32_t t0 = timer_get_ticks();
     if (net_send_ip(dst, IP_ICMP, pkt, 64) != 0) return -1;
 
-    for (int i = 0; i < 200; i++) {
+    uint32_t deadline = t0 + 50; /* 500ms timeout */
+    while (!ping_ok && timer_get_ticks() < deadline) {
         net_poll();
-        if (ping_ok) { ping_rtt = timer_get_ticks() - t0; return (int)ping_rtt; }
-        for (volatile int j = 0; j < 3000; j++);
+        asm volatile("sti; hlt; cli");
     }
+    if (ping_ok) { ping_rtt = timer_get_ticks() - t0; return (int)ping_rtt; }
     return -2;
 }
 
@@ -239,14 +252,15 @@ static void tcp_send_seg(uint8_t flags, const uint8_t* data, uint16_t dlen) {
     uint8_t buf[1500];
     tcp_header_t* h = (tcp_header_t*)buf;
     memset(h, 0, 20);
-    h->src_port = ts.sport;
-    h->dst_port = ts.dport;
-    h->seq_num  = ts.seq;
-    h->ack_num  = ts.ack;
+    h->src_port = htons(ts.sport);
+    h->dst_port = htons(ts.dport);
+    h->seq_num  = htonl(ts.seq);
+    h->ack_num  = htonl(ts.ack);
     h->data_off = 0x50;
     h->flags    = flags;
-    h->window   = 0x1000;
+    h->window   = htons(0x1000);
     if (dlen) memcpy(buf + 20, data, dlen);
+    h->checksum = 0;
     h->checksum = tcp_checksum(our_ip, tcp_dst_ip, buf, 20 + dlen);
 
     net_send_ip(tcp_dst_ip, IP_TCP, buf, 20 + dlen);
@@ -259,14 +273,14 @@ void tcp_process(const uint8_t* payload, uint16_t len, const uint8_t* src_ip) {
     (void)src_ip;
     if (len < 20) return;
     tcp_header_t* h = (tcp_header_t*)payload;
-    if (h->dst_port != ts.sport) return;
+    if (ntohs(h->dst_port) != ts.sport) return;
     uint16_t data_off = ((h->data_off >> 4) & 0xF) * 4;
     uint16_t dlen = len - data_off;
 
     switch (ts.state) {
     case TCP_SYN_SENT:
         if ((h->flags & TCP_FLAG_SYN) && (h->flags & TCP_FLAG_ACK)) {
-            ts.ack = h->seq_num + 1;
+            ts.ack = ntohl(h->seq_num) + 1;
             ts.state = TCP_ESTABLISHED;
             tcp_send_seg(TCP_FLAG_ACK, 0, 0);
         }
@@ -278,11 +292,11 @@ void tcp_process(const uint8_t* payload, uint16_t len, const uint8_t* src_ip) {
                 memcpy(ts.rx_buf + ts.rx_len, payload + data_off, dlen);
                 ts.rx_len += dlen;
             }
-            ts.ack = h->seq_num + dlen;
+            ts.ack = ntohl(h->seq_num) + dlen;
             tcp_send_seg(TCP_FLAG_ACK, 0, 0);
         }
         if (h->flags & TCP_FLAG_FIN) {
-            ts.ack = h->seq_num + 1;
+            ts.ack = ntohl(h->seq_num) + 1;
             tcp_send_seg(TCP_FLAG_ACK, 0, 0);
             ts.state = TCP_CLOSED;
         }
@@ -314,11 +328,12 @@ int tcp_connect(const char* host, uint16_t port) {
     ts.rx_len = ts.rx_read = 0;
 
     tcp_send_seg(TCP_FLAG_SYN, 0, 0);
-    for (int i = 0; i < 200; i++) {
+    uint32_t deadline = timer_get_ticks() + 50;
+    while (ts.state == TCP_SYN_SENT && timer_get_ticks() < deadline) {
         net_poll();
-        if (ts.state == TCP_ESTABLISHED) return 0;
-        for (volatile int j = 0; j < 5000; j++);
+        asm volatile("sti; hlt; cli");
     }
+    if (ts.state == TCP_ESTABLISHED) return 0;
     ts.state = TCP_CLOSED;
     return -1;
 }
@@ -330,7 +345,8 @@ int tcp_send_data(const uint8_t* data, uint16_t len) {
 }
 
 int tcp_recv(uint8_t* buf, uint16_t max) {
-    for (int i = 0; i < 200; i++) {
+    uint32_t deadline = timer_get_ticks() + 50;
+    while (timer_get_ticks() < deadline) {
         net_poll();
         if (ts.rx_read < ts.rx_len) {
             uint32_t avail = ts.rx_len - ts.rx_read;
@@ -339,7 +355,7 @@ int tcp_recv(uint8_t* buf, uint16_t max) {
             ts.rx_read += n;
             return (int)n;
         }
-        for (volatile int j = 0; j < 3000; j++);
+        asm volatile("sti; hlt; cli");
     }
     return 0;
 }
@@ -348,7 +364,11 @@ void tcp_close(void) {
     if (ts.state == TCP_ESTABLISHED || ts.state == TCP_FIN_WAIT) {
         tcp_send_seg(TCP_FLAG_FIN | TCP_FLAG_ACK, 0, 0);
         ts.state = TCP_CLOSING;
-        for (int i = 0; i < 30; i++) { net_poll(); for (volatile int j = 0; j < 3000; j++); }
+        uint32_t deadline = timer_get_ticks() + 30;
+        while (ts.state != TCP_CLOSED && timer_get_ticks() < deadline) {
+            net_poll();
+            asm volatile("sti; hlt; cli");
+        }
     }
     ts.state = TCP_CLOSED;
 }
