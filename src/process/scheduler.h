@@ -39,5 +39,6 @@ void     process_exit(int code);
 void     process_yield(void);
 process_t* scheduler_current(void);
 process_t* scheduler_get(pid_t pid);
+int      scheduler_process_count(void);
 
 #endif

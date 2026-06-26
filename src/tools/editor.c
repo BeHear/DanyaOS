@@ -95,6 +95,11 @@ static void editor_insert_char(char c) {
     if (ed.cursor_x <= max_shift) {
         line[ed.cursor_x] = c;
     }
+    if (len < max_shift) {
+        line[len + 1] = '\0';
+    } else {
+        line[max_shift] = '\0';
+    }
     ed.cursor_x++;
     ed.modified = 1;
 }
@@ -175,8 +180,8 @@ static int editor_save(void) {
     kfree(save_buf);
 
     ed.modified = 0;
-    char msg[80];
-    snprintf(msg, sizeof(msg), "Saved %d bytes to %.48s", pos, ed.filename);
+    char msg[120];
+    snprintf(msg, sizeof(msg), "Saved %d bytes to %s", pos, ed.filename);
     vga_puts_at(1, STATUS_Y, msg);
     return 0;
 }
@@ -185,8 +190,18 @@ void editor_open(const char* filename) {
     memset(&ed, 0, sizeof(ed));
     strncpy(ed.filename, filename, EDITOR_NAME_LEN - 1);
 
-    char buf[EDITOR_LINE_LEN];
-    int len = tmpfs_read(filename, buf, EDITOR_LINE_LEN - 1);
+    char* buf = (char*)kmalloc(TMPFS_DATA_SIZE);
+    if (!buf) {
+        ed.lines[0][0] = '\0';
+        ed.line_count = 1;
+        ed.cursor_x = 0;
+        ed.cursor_y = 0;
+        ed.scroll_y = 0;
+        ed.modified = 0;
+        ed.running = 1;
+        return;
+    }
+    int len = tmpfs_read(filename, buf, TMPFS_DATA_SIZE - 1);
 
     if (len > 0) {
         buf[len] = '\0';
@@ -213,6 +228,8 @@ void editor_open(const char* filename) {
         ed.lines[0][0] = '\0';
         ed.line_count = 1;
     }
+
+    kfree(buf);
 
     ed.cursor_x = 0;
     ed.cursor_y = 0;

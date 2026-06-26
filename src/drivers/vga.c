@@ -117,13 +117,14 @@ void vga_putchar(char c) {
 }
 
 void vga_putchar_at(int x, int y, char c) {
+    if (!vga_available) return;
     if (x < 0 || x >= VGA_WIDTH || y < 0 || y >= VGA_HEIGHT) return;
     vga_buffer[y * VGA_WIDTH + x] = vga_entry(c, vga_color_attr);
 }
 
 void vga_puts_at(int x, int y, const char* s) {
     while (*s) {
-        if (x >= VGA_WIDTH) break;
+        if (x >= VGA_WIDTH || y < 0 || y >= VGA_HEIGHT) break;
         vga_putchar_at(x, y, *s++);
         x++;
     }

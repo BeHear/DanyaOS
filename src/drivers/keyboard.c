@@ -87,28 +87,30 @@ static void keyboard_handler(stack_state_t* state) {
         extended_prefix = 0;
     }
 
-    if (scancode == 0x1D) { ctrl_pressed = 1; return; }
-    if (scancode == 0x9D) { ctrl_pressed = 0; return; }
+    if (scancode == 0x1D) { cli(); ctrl_pressed = 1; sti(); return; }
+    if (scancode == 0x9D) { cli(); ctrl_pressed = 0; sti(); return; }
 
     if (scancode == 0x2A || scancode == 0x36) {
-        shift_pressed = 1;
+        cli(); shift_pressed = 1; sti();
         return;
     }
     if (scancode == 0xAA || scancode == 0xB6) {
-        shift_pressed = 0;
+        cli(); shift_pressed = 0; sti();
         return;
     }
 
     if (scancode == 0x3A) {
-        caps_lock = !caps_lock;
+        cli(); caps_lock = !caps_lock; sti();
         return;
     }
 
     if (scancode & 0x80) return;
 
+    cli();
     scancode_buffer = scancode;
     scancode_available = true;
     scancode_extended_state = is_extended;
+    sti();
 
     // Extended keys (arrows etc.) — return as KEY_* codes via key_buffer
     if (is_extended) {
@@ -189,6 +191,12 @@ uint8_t keyboard_get_extended(void) {
     cli();
     uint8_t sc = scancode_buffer;
     bool ext = scancode_extended_state;
+    if (!ext) {
+        // Put it back so regular getter can use it
+        scancode_available = true;
+        sti();
+        return KEY_NONE;
+    }
     scancode_available = false;
     scancode_extended_state = false;
     sti();

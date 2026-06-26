@@ -77,6 +77,7 @@ void process_exit(int code) {
     }
     if (proc->user_stack) {
         vmm_unmap_page(proc->user_stack);
+        pmm_free_page((void*)(proc->user_stack & ~(PAGE_SIZE - 1)));
         proc->user_stack = 0;
     }
 
@@ -136,4 +137,8 @@ process_t* scheduler_get(pid_t pid) {
     if (pid < 1 || pid > MAX_PROCESSES) return NULL;
     if (processes[pid - 1].state == PROC_UNUSED) return NULL;
     return &processes[pid - 1];
+}
+
+int scheduler_process_count(void) {
+    return process_count;
 }

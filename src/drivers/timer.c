@@ -12,6 +12,7 @@ static void timer_handler(stack_state_t* state) {
 }
 
 void timer_init(uint32_t freq) {
+    if (freq == 0) return;
     idt_register_handler(32, timer_handler);
 
     uint32_t divisor = 1193180 / freq;

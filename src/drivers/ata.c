@@ -15,9 +15,9 @@ static void ata_delay(uint16_t io_base) {
 
 static int ata_wait_ready(uint16_t io_base) {
     uint8_t status;
-    for (int i = 0; i < 100000; i++) {
+    for (int i = 0; i < 200000; i++) {
         status = inb(io_base + ATA_REG_STATUS);
-        if (!(status & ATA_SR_BSY)) return 0;
+        if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRDY)) return 0;
     }
     return -1;
 }

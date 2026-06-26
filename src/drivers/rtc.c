@@ -57,16 +57,21 @@ int rtc_read_time(rtc_time_t* out) {
     if (!rtc_binary_mode) {
         sec  = bcd_to_bin(sec);
         min  = bcd_to_bin(min);
+        hour = bcd_to_bin(hour);
         day  = bcd_to_bin(day);
         mon  = bcd_to_bin(mon);
         year = bcd_to_bin(year);
         cent = bcd_to_bin(cent);
+        day  = bcd_to_bin(day);
+        mon  = bcd_to_bin(mon);
 
         if (!rtc_24hour_mode) {
             uint8_t pm = hour & 0x80;
             hour = bcd_to_bin(hour & 0x7F);
             if (pm && hour < 12) hour += 12;
             if (!pm && hour == 12) hour = 0;
+        } else {
+            hour = bcd_to_bin(hour);
         }
     } else {
         // Binary mode 12-hour check

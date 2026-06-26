@@ -84,7 +84,7 @@ void idt_register_handler(uint8_t num, isr_handler_t handler) {
 }
 
 void isr_handler(stack_state_t* state) {
-    if (isr_handlers[state->int_no]) {
+    if (state->int_no < 256 && isr_handlers[state->int_no]) {
         isr_handlers[state->int_no](state);
     } else if (state->int_no < 32) {
         vga_printf("\n!!! EXCEPTION %d (err=%x) at %p !!!\n",
@@ -95,7 +95,7 @@ void isr_handler(stack_state_t* state) {
 }
 
 void irq_handler(stack_state_t* state) {
-    if (isr_handlers[state->int_no]) {
+    if (state->int_no < 256 && isr_handlers[state->int_no]) {
         isr_handlers[state->int_no](state);
     }
 

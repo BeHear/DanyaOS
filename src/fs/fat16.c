@@ -123,14 +123,37 @@ int fat16_mount(void) {
     fs.fat_start = fs.bpb.reserved_sectors;
     fs.root_start = fs.fat_start + fs.bpb.num_fats * fs.bpb.fat_size_16;
     fs.data_start = fs.root_start + (fs.bpb.root_entries * 32 + 511) / 512;
-    fs.total_clusters = (fs.bpb.total_sectors_32 - fs.data_start) / fs.bpb.sectors_per_cluster;
+
+    uint32_t total_sectors = fs.bpb.total_sectors_32;
+    if (total_sectors == 0) total_sectors = fs.bpb.total_sectors_16;
+    if (total_sectors > fs.data_start)
+        fs.total_clusters = (total_sectors - fs.data_start) / fs.bpb.sectors_per_cluster;
+    else
+        fs.total_clusters = 0;
     fs.mounted = 1;
 
     fat16_scan_root();
 
+    // Count actual free clusters by scanning FAT
+    uint32_t free_clusters = 0;
+    {
+        uint32_t total_fat_sectors = fs.bpb.fat_size_16;
+        uint32_t entries_per_sector = 512 / 2;
+        for (uint32_t si = 0; si < total_fat_sectors; si++) {
+            uint8_t sector_buf[512];
+            if (ata_read_sectors(fs.fat_start + si, 1, sector_buf) != 0) continue;
+            for (uint32_t i = 0; i < entries_per_sector; i++) {
+                uint32_t cl = si * entries_per_sector + i;
+                if (cl < 2 || cl >= 2 + fs.total_clusters) continue;
+                uint16_t val = *(uint16_t*)&sector_buf[i * 2];
+                if (val == 0x0000) free_clusters++;
+            }
+        }
+    }
+
     vga_printf("  [ OK ] FAT16: %d files, %u KB free\n",
                fs.file_count,
-               (fs.total_clusters * fs.bpb.sectors_per_cluster * 512) / 1024);
+               (free_clusters * fs.bpb.sectors_per_cluster * 512) / 1024);
 
     return 0;
 }
@@ -218,6 +241,9 @@ static int fat16_write_cluster(uint32_t cluster, const uint8_t* data, uint32_t s
     return (int)to_write;
 }
 
+static int fat16_write_cluster(uint32_t cluster, const uint8_t* data, uint32_t size);
+static void fat16_free_cluster_chain(uint32_t cluster);
+
 int fat16_write_file(const char* name, const void* data, uint32_t size) {
     if (!fs.mounted) return -1;
 
@@ -239,10 +265,13 @@ int fat16_write_file(const char* name, const void* data, uint32_t size) {
     int prev_cluster = first_cluster;
     uint32_t remaining = size;
     const uint8_t* ptr = (const uint8_t*)data;
+    int write_failed = 0;
 
     for (uint32_t c = 0; c < needed_clusters; c++) {
+        if (write_failed) break;
+
         int cur_cluster = (c == 0) ? first_cluster : fat16_allocate_cluster();
-        if (cur_cluster < 2) break;
+        if (cur_cluster < 2) { write_failed = 1; break; }
 
         if (c > 0 && prev_cluster >= 2) {
             // Link previous cluster to current
@@ -257,10 +286,17 @@ int fat16_write_file(const char* name, const void* data, uint32_t size) {
         }
 
         uint32_t to_write = remaining < cluster_size ? remaining : cluster_size;
-        fat16_write_cluster((uint32_t)cur_cluster, ptr, to_write);
+        if (fat16_write_cluster((uint32_t)cur_cluster, ptr, to_write) != 0) {
+            write_failed = 1;
+        }
         ptr += to_write;
         remaining -= to_write;
         prev_cluster = cur_cluster;
+    }
+
+    if (write_failed && first_cluster >= 2) {
+        fat16_free_cluster_chain(first_cluster);
+        return -1;
     }
 
     // Create entry in root directory

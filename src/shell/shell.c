@@ -376,7 +376,7 @@ static void cmd_sysinfo(void) {
     vga_printf("Memory:      %u KB total, %u KB used, %u KB free\n",
                total_mem / 1024, used_mem / 1024, free_mem / 1024);
     vga_printf("Uptime:      %u seconds\n", seconds);
-    vga_printf("Processes:   %d registered\n", MAX_PROCESSES);
+    vga_printf("Processes:   %d registered\n", scheduler_process_count());
     vga_printf("PCI devices: %d found\n", pci_device_count());
 
     rtc_time_t rtc;
@@ -406,7 +406,7 @@ static void cmd_pci(void) {
 
 static void cmd_colors(void) {
     vga_puts("VGA Color Palette (foreground on background):\n\n");
-    for (int bg = 0; bg < 8; bg++) {
+    for (int bg = 0; bg < 16; bg++) {
         for (int fg = 0; fg < 16; fg++) {
             vga_set_color((uint8_t)fg, (uint8_t)bg);
             vga_putchar('#');
@@ -595,8 +595,13 @@ static void cmd_create_process(const char* name) {
 }
 
 static void cmd_ipc_test(void) {
-    ipc_send(1, "Hello from shell!", 17);
-    vga_puts("IPC test: message queued (pid 1).\n");
+    process_t* proc = scheduler_current();
+    if (proc) {
+        ipc_send(proc->pid, "Hello from shell!", 17);
+        vga_printf("IPC test: message queued (pid=%d).\n", proc->pid);
+    } else {
+        vga_puts("IPC test: no current process.\n");
+    }
 }
 
 static void cmd_reboot(void) {

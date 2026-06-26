@@ -47,6 +47,12 @@ static uint32_t detect_memory_multiboot(multiboot_info_t* mbi) {
     uint64_t total = (upper_mem_kb + 1024) * 1024;
     if (total > 0xFFFFFFFF) total = 0xFFFFFFFF;
 
+    // Cap to identity-mapped region (16MB). PMM must not hand out pages
+    // outside the range the VMM identity-maps, otherwise page-table setup
+    // would fault on unmapped physical addresses after paging is enabled.
+    uint64_t cap = 16 * 1024 * 1024;
+    if (total > cap) total = cap;
+
     vga_printf("  [ OK ] Multiboot: %u KB lower, %u KB upper\n",
                mbi->mem_lower, mbi->mem_upper);
     return total;

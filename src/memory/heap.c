@@ -97,7 +97,7 @@ void heap_init(void) {
 }
 
 void* kmalloc(size_t size) {
-    if (size == 0 || size > 0xFFFFFFFC) return NULL;
+    if (size == 0 || size > (0xFFFFFFFFUL - BLOCK_SIZE - 4)) return NULL;
     size = ALIGN4(size);
 
     block_t* block = find_free_block(size);
@@ -124,7 +124,7 @@ void* kmalloc(size_t size) {
 }
 
 void* kmalloc_aligned(size_t size) {
-    if (size == 0 || size > 0xFFFFFFFC) return NULL;
+    if (size == 0 || size > (0xFFFFFFFFUL - BLOCK_SIZE - 4)) return NULL;
     uint32_t total = BLOCK_SIZE + ALIGN4(size);
     uint32_t pages = (total + PAGE_SIZE - 1) / PAGE_SIZE;
 

@@ -21,7 +21,9 @@ int32_t ipc_send(pid_t to, const char* data, uint32_t length) {
         vga_printf("[ipc] pid %d not found\n", to);
         return -1;
     }
-    return rust_ipc_send(to, data, length);
+    process_t* sender = scheduler_current();
+    pid_t from = sender ? sender->pid : 0;
+    return rust_ipc_send(from, to, data, length);
 }
 
 int32_t ipc_receive(pid_t from, char* buf, uint32_t max_len) {

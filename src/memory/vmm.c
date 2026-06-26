@@ -136,7 +136,7 @@ page_directory_entry_t* vmm_create_directory(void) {
 
     memset(dir, 0, sizeof(page_directory_entry_t) * PAGE_DIRECTORY_ENTRIES);
 
-    for (uint32_t i = 0; i < 16; i++) {
+    for (uint32_t i = 16; i < PAGE_DIRECTORY_ENTRIES; i++) {
         if (kernel_directory[i].present) {
             dir[i] = kernel_directory[i];
         }
@@ -146,6 +146,18 @@ page_directory_entry_t* vmm_create_directory(void) {
 }
 
 void vmm_free_directory(page_directory_entry_t* dir) {
+    for (uint32_t i = 0; i < 16; i++) {
+        if (dir[i].present && dir[i].table != kernel_directory[i].table) {
+            page_table_entry_t* table = (page_table_entry_t*)(dir[i].table << 12);
+            for (uint32_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
+                if (table[j].present) {
+                    pmm_free_page((void*)(table[j].frame << 12));
+                }
+            }
+            pmm_free_page(table);
+        }
+    }
+
     for (uint32_t i = 16; i < PAGE_DIRECTORY_ENTRIES; i++) {
         if (dir[i].present) {
             page_table_entry_t* table = (page_table_entry_t*)(dir[i].table << 12);

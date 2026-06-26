@@ -92,7 +92,7 @@ pub unsafe extern "C" fn rust_ipc_send(
     }
 
     let msg = &mut MESSAGE_QUEUE[tail as usize];
-    msg.sender = 0;
+    msg.sender = to;
     msg.receiver = to;
 
     let src_slice = core::slice::from_raw_parts(data, len as usize);
