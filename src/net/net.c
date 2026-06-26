@@ -277,6 +277,7 @@ typedef struct {
 
 static tcp_state_t ts;
 static uint8_t tcp_dst_ip[4];
+static uint16_t tcp_eph_port = 0xC000; // ephemeral port counter
 
 static void tcp_send_seg(uint8_t flags, const uint8_t* data, uint16_t dlen) {
     uint16_t seglen = 20 + dlen;
@@ -360,7 +361,7 @@ int tcp_connect(const char* host, uint16_t port) {
     }
     tcp_dst_ip[0] = (uint8_t)a; tcp_dst_ip[1] = (uint8_t)b;
     tcp_dst_ip[2] = (uint8_t)c; tcp_dst_ip[3] = (uint8_t)d;
-    ts.sport = 0xC000 + port;
+    ts.sport = tcp_eph_port++;
     ts.dport = port;
     ts.seq = 0x1000;
     ts.ack = 0;
@@ -499,7 +500,7 @@ static const uint8_t* dns_skip_name(const uint8_t* msg, const uint8_t* p) {
 
 int dns_resolve(const char* hostname, uint8_t* ip_out) {
     uint8_t dns_ip[4] = {10, 0, 2, 3};
-    uint16_t src_port = 0xD053;
+    uint16_t src_port = tcp_eph_port++;
     uint16_t id = 0x1234;
 
     uint8_t query[256];
