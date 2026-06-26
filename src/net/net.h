@@ -78,6 +78,21 @@ typedef struct {
     uint16_t urg;
 } __attribute__((packed)) tcp_header_t;
 
+// UDP
+#define IP_UDP 17
+
+typedef struct {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint16_t len;
+    uint16_t checksum;
+} __attribute__((packed)) udp_header_t;
+
+int udp_send(const uint8_t* dst_ip, uint16_t dst_port, uint16_t src_port,
+             const uint8_t* data, uint16_t len);
+int udp_recv(uint16_t port, uint8_t* buf, uint16_t max);
+int dns_resolve(const char* hostname, uint8_t* ip_out);
+
 // --- API ---
 void net_init(void);
 void net_poll(void);

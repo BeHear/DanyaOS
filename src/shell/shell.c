@@ -647,21 +647,25 @@ static void cmd_ping(const char* args) {
 
 static void cmd_curl(const char* args) {
     while (*args == ' ') args++;
-    if (*args == '\0') { vga_puts("Usage: curl <ip:port/path>\n"); return; }
+    if (*args == '\0') { vga_puts("Usage: curl <host:port/path>\n"); return; }
 
-    char host[32] = {0};
+    char host[64] = {0};
     uint16_t port = 80;
     const char* path = "/";
-
-    // Parse ip:port/path
     const char* p = args;
+
+    // Strip http:// or https:// prefix
+    if (strncmp(p, "http://", 7) == 0) p += 7;
+    else if (strncmp(p, "https://", 8) == 0) p += 8;
+
     int i = 0;
-    while (*p && *p != ':' && *p != '/' && i < 31) host[i++] = *p++;
+    while (*p && *p != ':' && *p != '/' && i < 63) host[i++] = *p++;
     host[i] = '\0';
     if (*p == ':') {
         p++;
-        port = 0;
-        while (*p >= '0' && *p <= '9') { port = port * 10 + (*p - '0'); p++; }
+        uint16_t pp = 0;
+        while (*p >= '0' && *p <= '9') { pp = pp * 10 + (*p++ - '0'); }
+        if (pp > 0) port = pp;  // only override if digits parsed
     }
     if (*p == '/') path = p;
 

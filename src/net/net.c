@@ -344,8 +344,7 @@ void tcp_process(const uint8_t* payload, uint16_t len, const uint8_t* src_ip) {
    ═══════════════════════════════════════════ */
 int tcp_connect(const char* host, uint16_t port) {
     int a=0, b=0, c=0, d=0;
-    // Simple IP parser (no sscanf in freestanding)
-    const char* p = host;
+    const char* p = host, *orig = host;
     while (*p >= '0' && *p <= '9') a = a * 10 + (*p++ - '0');
     if (*p == '.') p++;
     while (*p >= '0' && *p <= '9') b = b * 10 + (*p++ - '0');
@@ -353,7 +352,14 @@ int tcp_connect(const char* host, uint16_t port) {
     while (*p >= '0' && *p <= '9') c = c * 10 + (*p++ - '0');
     if (*p == '.') p++;
     while (*p >= '0' && *p <= '9') d = d * 10 + (*p++ - '0');
-    tcp_dst_ip[0] = a; tcp_dst_ip[1] = b; tcp_dst_ip[2] = c; tcp_dst_ip[3] = d;
+    // DNS fallback if not a valid dotted IP
+    if (*p != '\0' || (a == 0 && b == 0 && c == 0 && d == 0 && *orig != '0')) {
+        uint8_t dns_ip[4];
+        if (dns_resolve(host, dns_ip) != 0) return -2;
+        a = dns_ip[0]; b = dns_ip[1]; c = dns_ip[2]; d = dns_ip[3];
+    }
+    tcp_dst_ip[0] = (uint8_t)a; tcp_dst_ip[1] = (uint8_t)b;
+    tcp_dst_ip[2] = (uint8_t)c; tcp_dst_ip[3] = (uint8_t)d;
     ts.sport = 0xC000 + port;
     ts.dport = port;
     ts.seq = 0x1000;
@@ -408,6 +414,140 @@ void tcp_close(void) {
 }
 
 /* ═══════════════════════════════════════════
+   UDP
+   ═══════════════════════════════════════════ */
+#define UDP_BUF_SZ 1536
+static uint8_t  udp_buf[UDP_BUF_SZ];
+static uint16_t udp_len;
+static uint16_t udp_port;
+static volatile int udp_got;
+
+static void udp_process(const uint8_t* payload, uint16_t len) {
+    if (len < 8) return;
+    const udp_header_t* uh = (const udp_header_t*)payload;
+    uint16_t dport = ntohs(uh->dst_port);
+    uint16_t dlen  = ntohs(uh->len);
+    if (dlen < 8 || dlen - 8 > UDP_BUF_SZ) return;
+    dlen -= 8;
+    if (!udp_got && dport == udp_port) {
+        memcpy(udp_buf, payload + 8, dlen);
+        udp_len = dlen;
+        udp_got = 1;
+    }
+}
+
+int udp_send(const uint8_t* dst_ip, uint16_t dst_port, uint16_t src_port,
+             const uint8_t* data, uint16_t len) {
+    uint8_t buf[512];
+    uint16_t total = 8 + len;
+    if (total > 512) return -1;
+    udp_header_t* uh = (udp_header_t*)buf;
+    uh->src_port = htons(src_port);
+    uh->dst_port = htons(dst_port);
+    uh->len      = htons(total);
+    uh->checksum = 0;
+    if (data && len) memcpy(buf + 8, data, len);
+    return net_send_ip(dst_ip, IP_UDP, buf, total);
+}
+
+int udp_recv(uint16_t port, uint8_t* buf, uint16_t max) {
+    udp_port = port;
+    udp_got  = 0;
+    uint32_t deadline = timer_get_ticks() + 50;
+    while (timer_get_ticks() < deadline) {
+        net_poll();
+        if (udp_got) {
+            uint16_t n = udp_len > max ? max : udp_len;
+            memcpy(buf, udp_buf, n);
+            udp_got = 0;
+            return (int)n;
+        }
+        asm volatile("sti; hlt; cli");
+    }
+    return -1;
+}
+
+/* ═══════════════════════════════════════════
+   DNS
+   ═══════════════════════════════════════════ */
+static int dns_enc_name(uint8_t* dst, const char* name) {
+    int pos = 0;
+    while (*name) {
+        const char* dot = name;
+        while (*dot && *dot != '.') dot++;
+        int n = (int)(dot - name);
+        if (n > 63) return -1;
+        dst[pos++] = (uint8_t)n;
+        for (int i = 0; i < n; i++) dst[pos++] = (uint8_t)*name++;
+        if (*name == '.') name++;
+    }
+    dst[pos++] = 0;
+    return pos;
+}
+
+static const uint8_t* dns_skip_name(const uint8_t* msg, const uint8_t* p) {
+    (void)msg;
+    while (*p) {
+        if (*p & 0xC0) return p + 2;
+        p += *p + 1;
+    }
+    return p + 1;
+}
+
+int dns_resolve(const char* hostname, uint8_t* ip_out) {
+    uint8_t dns_ip[4] = {10, 0, 2, 3};
+    uint16_t src_port = 0xD053;
+    uint16_t id = 0x1234;
+
+    uint8_t query[256];
+    query[0] = (uint8_t)(id >> 8); query[1] = (uint8_t)(id & 0xFF);
+    query[2] = 0x01; query[3] = 0x00;
+    query[4] = 0; query[5] = 1;
+    memset(query + 6, 0, 6);
+
+    uint8_t enc[128];
+    int enclen = dns_enc_name(enc, hostname);
+    if (enclen < 0) return -5;
+    memcpy(query + 12, enc, enclen);
+    int off = 12 + enclen;
+    query[off++] = 0; query[off++] = 1;
+    query[off++] = 0; query[off++] = 1;
+
+    if (udp_send(dns_ip, 53, src_port, query, off) != 0) return -1;
+
+    uint8_t reply[512];
+    uint32_t deadline = timer_get_ticks() + 100;
+    while (timer_get_ticks() < deadline) {
+        int n = udp_recv(src_port, reply, sizeof(reply));
+        if (n > 12 && reply[0] == query[0] && reply[1] == query[1]) {
+            if ((reply[2] & 0x80) && (reply[3] & 0x0F) == 0) {
+                int ancount = (reply[6] << 8) | reply[7];
+                if (ancount > 0) {
+                    const uint8_t* p = reply + 12;
+                    p = dns_skip_name(reply, p); p += 4;
+                    p = dns_skip_name(reply, p);
+                    uint16_t type = (p[0] << 8) | p[1];
+                    if (type == 1) {
+                        p += 8;  // skip TYPE(2) + CLASS(2) + TTL(4)
+                        uint16_t rdlen = (p[0] << 8) | p[1]; p += 2;
+                        if (rdlen == 4) {
+                            ip_out[0] = p[0]; ip_out[1] = p[1];
+                            ip_out[2] = p[2]; ip_out[3] = p[3];
+                            return 0;
+                        }
+                    }
+                    return -4;
+                }
+                return -3;
+            }
+            return -2;
+        }
+        asm volatile("sti; hlt; cli");
+    }
+    return -1;
+}
+
+/* ═══════════════════════════════════════════
    Packet dispatch
    ═══════════════════════════════════════════ */
 static void dispatch(const uint8_t* pkt, uint16_t len) {
@@ -423,6 +563,8 @@ static void dispatch(const uint8_t* pkt, uint16_t len) {
         icmp_process(pkt + 34, len - 34, ip->src_ip);
     } else if (ip->proto == IP_TCP) {
         tcp_process(pkt + 34, len - 34, ip->src_ip);
+    } else if (ip->proto == IP_UDP) {
+        udp_process(pkt + 34, len - 34);
     }
 }
 
@@ -431,7 +573,8 @@ void net_init(void) {
     memset(arp_cache, 0, sizeof(arp_cache));
     memset(&ts, 0, sizeof(ts));
     ts.state = TCP_CLOSED;
-    vga_puts("  [ OK ] Network stack (ARP/IP/ICMP/TCP)\n");
+    udp_got = 0;
+    vga_puts("  [ OK ] Network stack (ARP/IP/ICMP/TCP/UDP/DNS)\n");
 }
 
 void net_poll(void) {
