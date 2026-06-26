@@ -6,6 +6,7 @@ static volatile char key_buffer;
 static volatile bool key_available = false;
 static volatile uint8_t scancode_buffer = 0;
 static volatile bool scancode_available = false;
+static volatile bool scancode_extended_state = false;
 
 static const char scancode_to_ascii[] = {
     0, 0, '1', '2', '3', '4', '5', '6',
@@ -107,8 +108,29 @@ static void keyboard_handler(stack_state_t* state) {
 
     scancode_buffer = scancode;
     scancode_available = true;
+    scancode_extended_state = is_extended;
 
-    if (is_extended) return;
+    // Extended keys (arrows etc.) — return as KEY_* codes via key_buffer
+    if (is_extended) {
+        uint8_t ext = KEY_NONE;
+        switch (scancode) {
+            case 0x48: ext = KEY_UP;    break;
+            case 0x50: ext = KEY_DOWN;  break;
+            case 0x4B: ext = KEY_LEFT;  break;
+            case 0x4D: ext = KEY_RIGHT; break;
+            case 0x47: ext = KEY_HOME;  break;
+            case 0x4F: ext = KEY_END;   break;
+            case 0x49: ext = KEY_PGUP;  break;
+            case 0x51: ext = KEY_PGDN;  break;
+            case 0x53: ext = KEY_DEL;   break;
+            case 0x52: ext = KEY_INS;   break;
+        }
+        if (ext != KEY_NONE) {
+            key_buffer = (char)ext;
+            key_available = true;
+        }
+        return;
+    }
 
     char c = shift_pressed ? scancode_to_shift[scancode] : scancode_to_ascii[scancode];
 
@@ -158,9 +180,40 @@ uint8_t keyboard_get_scancode(void) {
     return sc;
 }
 
+bool keyboard_has_scancode(void) {
+    return scancode_available;
+}
+
+uint8_t keyboard_get_extended(void) {
+    if (!scancode_available) return KEY_NONE;
+    cli();
+    uint8_t sc = scancode_buffer;
+    bool ext = scancode_extended_state;
+    scancode_available = false;
+    scancode_extended_state = false;
+    sti();
+
+    if (!ext) return KEY_NONE;
+
+    switch (sc) {
+        case 0x48: return KEY_UP;
+        case 0x50: return KEY_DOWN;
+        case 0x4B: return KEY_LEFT;
+        case 0x4D: return KEY_RIGHT;
+        case 0x47: return KEY_HOME;
+        case 0x4F: return KEY_END;
+        case 0x49: return KEY_PGUP;
+        case 0x51: return KEY_PGDN;
+        case 0x53: return KEY_DEL;
+        case 0x52: return KEY_INS;
+        default:   return KEY_NONE;
+    }
+}
+
 void keyboard_flush(void) {
     cli();
     key_available = false;
     scancode_available = false;
+    scancode_extended_state = false;
     sti();
 }

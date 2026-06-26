@@ -5,6 +5,8 @@
 #include "../drivers/cpuinfo.h"
 #include "../drivers/ata.h"
 #include "../drivers/acpi.h"
+#include "../drivers/rtc.h"
+#include "../drivers/pci.h"
 #include "../include/io.h"
 #include "../memory/pmm.h"
 #include "../memory/heap.h"
@@ -42,7 +44,7 @@ static void print_prompt(void) {
 
 static void cmd_help(void) {
     vga_clear();
-    vga_puts("DanyaOS Shell v1.3.5 - Commands:\n\n");
+    vga_puts("DanyaOS Shell v1.4 - Commands:\n\n");
     vga_puts(" help        clear/cls   echo        uname\n");
     vga_puts(" mem/free    uptime      ps          create\n");
     vga_puts(" ipc         ls          touch       write\n");
@@ -51,7 +53,8 @@ static void cmd_help(void) {
     vga_puts(" pwd         calc        history     reset\n");
     vga_puts(" beep        about       tuitest     shutdown\n");
     vga_puts(" reboot      cpuinfo     disk        fatls\n");
-    vga_puts(" fatread     fatwrite    sacpi\n\n");
+    vga_puts(" fatread     fatwrite    sacpi       ver\n");
+    vga_puts(" sysinfo     pci         colors      random\n\n");
     vga_puts(" CPU Simulator:\n");
     vga_puts("  reg [name] [val]  - show/set registers\n");
     vga_puts("  asm <instruction> - execute x86 instruction\n");
@@ -72,9 +75,9 @@ static void cmd_echo(const char* args) {
 }
 
 static void cmd_uname(void) {
-    vga_puts("DanyaOS 1.3.5 (Microkernel)\n");
+    vga_puts("DanyaOS 1.4 (Microkernel)\n");
     vga_puts("Architecture: i386\n");
-    vga_puts("Build: GCC freestanding\n");
+    vga_puts("Build: GCC freestanding + NASM + Rust\n");
 }
 
 static void cmd_mem(void) {
@@ -202,20 +205,70 @@ static void cmd_mv(const char* args) {
     vga_printf("Moved %s -> %s\n", src, dst);
 }
 
-static void cmd_hexdump(const char* name) {
-    while (*name == ' ') name++;
-    if (*name == '\0') { vga_puts("Usage: hexdump <filename>\n"); return; }
+static void cmd_hexdump(const char* args) {
+    while (*args == ' ') args++;
+    if (*args == '\0') { vga_puts("Usage: hexdump [mem <addr> <len> | <filename>]\n"); return; }
+
+    // Memory dump mode: hexdump mem <hex_addr> <len>
+    if (strncmp(args, "mem ", 4) == 0) {
+        args += 4;
+        while (*args == ' ') args++;
+        uint32_t addr = 0;
+        int digits = 0;
+        while ((*args >= '0' && *args <= '9') ||
+               (*args >= 'a' && *args <= 'f') ||
+               (*args >= 'A' && *args <= 'F')) {
+            addr <<= 4;
+            if (*args >= '0' && *args <= '9') addr += *args - '0';
+            else if (*args >= 'a' && *args <= 'f') addr += *args - 'a' + 10;
+            else addr += *args - 'A' + 10;
+            args++; digits++;
+        }
+        if (digits == 0) { vga_puts("Invalid address\n"); return; }
+        while (*args == ' ') args++;
+        int mlen = atoi(args);
+        if (mlen <= 0) mlen = 256;
+        if (mlen > 4096) mlen = 4096; // safety limit
+
+        vga_printf("Memory dump at 0x%x (%d bytes):\n", addr, mlen);
+        uint8_t* ptr = (uint8_t*)addr;
+        for (int i = 0; i < mlen; i += 16) {
+            vga_printf("%08x: ", addr + i);
+            for (int j = 0; j < 16 && (i + j) < mlen; j++) {
+                vga_printf("%02x ", ptr[i + j]);
+            }
+            vga_puts(" |");
+            for (int j = 0; j < 16 && (i + j) < mlen; j++) {
+                uint8_t ch = ptr[i + j];
+                vga_putchar((ch >= 32 && ch < 127) ? (char)ch : '.');
+            }
+            vga_puts("|\n");
+        }
+        return;
+    }
+
+    // File hexdump mode with ASCII column
     char* buf = (char*)kmalloc(TMPFS_DATA_SIZE);
     if (!buf) { vga_puts("Out of memory\n"); return; }
-    int len = tmpfs_read(name, buf, TMPFS_DATA_SIZE);
-    if (len < 1) { kfree(buf); vga_printf("File not found or empty: %s\n", name); return; }
-    vga_printf("Hexdump of %s (%d bytes):\n", name, len);
+    int len = tmpfs_read(args, buf, TMPFS_DATA_SIZE);
+    if (len < 1) { kfree(buf); vga_printf("File not found or empty: %s\n", args); return; }
+    vga_printf("Hexdump of %s (%d bytes):\n", args, len);
     for (int i = 0; i < len; i += 16) {
-        vga_printf("%04x: ", i);
+        vga_printf("%08x: ", i);
         for (int j = 0; j < 16 && (i + j) < len; j++) {
             vga_printf("%02x ", (uint8_t)buf[i + j]);
         }
-        vga_puts("\n");
+        // Padding if last line is short
+        int remaining = len - i;
+        if (remaining < 16) {
+            for (int p = remaining; p < 16; p++) vga_puts("   ");
+        }
+        vga_puts(" |");
+        for (int j = 0; j < 16 && (i + j) < len; j++) {
+            uint8_t ch = (uint8_t)buf[i + j];
+            vga_putchar((ch >= 32 && ch < 127) ? (char)ch : '.');
+        }
+        vga_puts("|\n");
     }
     kfree(buf);
 }
@@ -293,10 +346,92 @@ static void cmd_color(const char* args) {
 }
 
 static void cmd_date(void) {
+    rtc_time_t rtc;
+    if (rtc_read_time(&rtc) == 0) {
+        char buf[64];
+        rtc_format_time(buf, sizeof(buf), &rtc);
+        vga_printf("%s  (Weekday: %u)\n", buf, rtc.weekday);
+    } else {
+        vga_puts("RTC not available. Use 'uptime' for boot timer.\n");
+    }
+}
+
+static void cmd_ver(void) {
+    vga_puts("DanyaOS v1.4 (2025-06-26)\n");
+    vga_puts("  Kernel: Microkernel with IPC\n");
+    vga_puts("  Drivers: ATA/IDE, FAT16, ACPI, RTC, PCI\n");
+    vga_puts("  Features: Paging, VMM, Scheduler, tmpfs\n");
+}
+
+static void cmd_sysinfo(void) {
+    uint32_t total_mem = pmm_get_total_count() * PAGE_SIZE;
+    uint32_t free_mem = pmm_get_free_count() * PAGE_SIZE;
+    uint32_t used_mem = total_mem - free_mem;
     uint32_t ticks = timer_get_ticks();
     uint32_t seconds = ticks / 100;
-    vga_printf("Boot time: %u seconds ago\n", seconds);
-    vga_printf("Timer ticks: %u\n", ticks);
+
+    vga_puts("===== DanyaOS System Information =====\n");
+    vga_printf("Version:     DanyaOS 1.4\n");
+    vga_printf("Arch:        i386\n");
+    vga_printf("Memory:      %u KB total, %u KB used, %u KB free\n",
+               total_mem / 1024, used_mem / 1024, free_mem / 1024);
+    vga_printf("Uptime:      %u seconds\n", seconds);
+    vga_printf("Processes:   %d registered\n", MAX_PROCESSES);
+    vga_printf("PCI devices: %d found\n", pci_device_count());
+
+    rtc_time_t rtc;
+    if (rtc_read_time(&rtc) == 0) {
+        char buf[64];
+        rtc_format_time(buf, sizeof(buf), &rtc);
+        vga_printf("RTC time:    %s\n", buf);
+    }
+}
+
+static void cmd_pci(void) {
+    int count = pci_device_count();
+    vga_printf("PCI devices: %d\n\n", count);
+    vga_puts("BUS:DEV.F  VENDOR  DEVICE  CLASS     IRQ  NAME\n");
+    vga_puts("--------  ------  ------  --------  ---  ----\n");
+    for (int i = 0; i < count; i++) {
+        const pci_device_t* d = pci_get_device(i);
+        if (!d) continue;
+        vga_printf("%02x:%02x.%x  %04x   %04x  %s  %02x  %s\n",
+                   d->bus, d->device, d->func,
+                   d->vendor_id, d->device_id,
+                   pci_class_name(d->class_code, d->subclass),
+                   d->interrupt_line,
+                   pci_vendor_name(d->vendor_id));
+    }
+}
+
+static void cmd_colors(void) {
+    vga_puts("VGA Color Palette (foreground on background):\n\n");
+    for (int bg = 0; bg < 8; bg++) {
+        for (int fg = 0; fg < 16; fg++) {
+            vga_set_color((uint8_t)fg, (uint8_t)bg);
+            vga_putchar('#');
+        }
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+        vga_putchar('\n');
+    }
+    vga_puts("\nUse: color <fg> [<bg>] — e.g. 'color red white'\n");
+    vga_puts("     color reset — restore defaults\n");
+    vga_set_color(shell_fg, shell_bg);
+}
+
+// Simple LFSR PRNG — no external state needed
+static uint32_t rand_state = 1;
+static void cmd_random(const char* args) {
+    while (*args == ' ') args++;
+    int limit = atoi(args);
+    if (limit <= 0) limit = 100;
+
+    // LFSR
+    for (int i = 0; i < 5; i++) {
+        rand_state = (rand_state >> 1) ^ (-(rand_state & 1) & 0xEDB88320);
+    }
+    int val = (int)(rand_state % (uint32_t)limit);
+    vga_printf("Random (0-%d): %d\n", limit - 1, val);
 }
 
 static void cmd_whoami(void) {
@@ -355,7 +490,7 @@ static void cmd_beep(void) {
 }
 
 static void cmd_about(void) {
-    vga_puts("DanyaOS v1.3.5\n");
+    vga_puts("DanyaOS v1.4\n");
     vga_puts("A hobby microkernel OS for x86 (i386)\n");
     vga_puts("Written in C, Rust, and x86 assembly\n");
     vga_puts("Features: GDT, IDT, PMM, VMM, Heap,\n");
@@ -521,6 +656,11 @@ static void process_command(const char* cmd) {
     else if (strcmp(cmd, "about") == 0) cmd_about();
     else if (strcmp(cmd, "tuitest") == 0) tui_test();
     else if (strcmp(cmd, "cpuinfo") == 0) cmd_cpuinfo();
+    else if (strcmp(cmd, "ver") == 0) cmd_ver();
+    else if (strcmp(cmd, "sysinfo") == 0) cmd_sysinfo();
+    else if (strcmp(cmd, "pci") == 0) cmd_pci();
+    else if (strcmp(cmd, "colors") == 0) cmd_colors();
+    else if (strncmp(cmd, "random", 6) == 0 && (cmd[6] == ' ' || cmd[6] == '\0')) cmd_random(cmd + 6);
     else if (strcmp(cmd, "disk") == 0) cmd_disk();
     else if (strcmp(cmd, "fatls") == 0) cmd_fatls();
     else if (strncmp(cmd, "fatread", 7) == 0 && (cmd[7] == ' ' || cmd[7] == '\0')) cmd_fatread(cmd + 7);

@@ -7,6 +7,8 @@
 #include "../drivers/timer.h"
 #include "../drivers/ata.h"
 #include "../drivers/acpi.h"
+#include "../drivers/rtc.h"
+#include "../drivers/pci.h"
 #include "../memory/pmm.h"
 #include "../memory/vmm.h"
 #include "../memory/heap.h"
@@ -32,7 +34,7 @@ static void print_banner(void) {
     vga_puts(" |_____/ |_| |_||_|    |____/  \\____||_| |_|\n");
     vga_puts("\n");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-    vga_puts("  Microkernel v1.3.5\n");
+    vga_puts("  Microkernel v1.4\n");
     vga_puts("  (c) 2025 DanyaOS Project\n\n");
     vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
     vga_puts("  Initializing subsystems...\n");
@@ -107,6 +109,14 @@ static void init_subsystems(multiboot_info_t* mbi) {
 
     serial_puts("[init] ATA...");
     ata_init();
+    serial_puts(" done\n");
+
+    serial_puts("[init] RTC...");
+    rtc_init();
+    serial_puts(" done\n");
+
+    serial_puts("[init] PCI...");
+    pci_init();
     serial_puts(" done\n");
 
     serial_puts("[init] ACPI...");

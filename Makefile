@@ -36,8 +36,10 @@ OBJS    = $(BUILD)/kernel_entry.o \
           $(BUILD)/tmpfs.o \
           $(BUILD)/fat16.o \
           $(BUILD)/ata.o \
-          $(BUILD)/acpi.o \
-          $(BUILD)/acpi_sim.o \
+           $(BUILD)/rtc.o \
+           $(BUILD)/pci.o \
+           $(BUILD)/acpi.o \
+           $(BUILD)/acpi_sim.o \
           $(BUILD)/cpu_sim.o \
           $(BUILD)/editor.o \
           $(BUILD)/shell.o \

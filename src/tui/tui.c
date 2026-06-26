@@ -158,7 +158,7 @@ static void show_file_info(void) {
 
 static void show_system_info(void) {
     const char* lines[] = {
-        "DanyaOS v1.3.5 (Microkernel)",
+        "DanyaOS v1.4 (Microkernel)",
         "Architecture: i386 (x86)",
         "VGA text mode 80x25",
         "Timer ticks active"

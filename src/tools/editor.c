@@ -18,7 +18,7 @@ static void editor_draw(void) {
     // Title bar (row 0)
     vga_set_color(VGA_BLACK, VGA_LIGHT_CYAN);
     for (int i = 0; i < EDITOR_W; i++) vga_putchar_at(i, 0, ' ');
-    vga_puts_at(2, 0, "DANO Editor v1.3.5");
+    vga_puts_at(2, 0, "DANO Editor v1.4");
     if (ed.filename[0]) {
         vga_puts_at(EDITOR_W - strlen(ed.filename) - 4, 0, ed.filename);
     }
@@ -238,7 +238,6 @@ void editor_run(void) {
 
         char c = keyboard_getchar();
 
-        // Ctrl key combos (check extended scancodes)
         if (c == 0x11) { // Ctrl+Q
             ed.running = 0;
         } else if (c == 0x13) { // Ctrl+S
@@ -247,6 +246,52 @@ void editor_run(void) {
             editor_newline();
         } else if (c == '\b') {
             editor_delete_char();
+        } else if (c == (char)KEY_UP) {
+            if (ed.cursor_y > 0) {
+                ed.cursor_y--;
+                if (ed.cursor_x > (int)strlen(ed.lines[ed.cursor_y]))
+                    ed.cursor_x = strlen(ed.lines[ed.cursor_y]);
+            }
+        } else if (c == (char)KEY_DOWN) {
+            if (ed.cursor_y < ed.line_count - 1) {
+                ed.cursor_y++;
+                if (ed.cursor_x > (int)strlen(ed.lines[ed.cursor_y]))
+                    ed.cursor_x = strlen(ed.lines[ed.cursor_y]);
+            }
+        } else if (c == (char)KEY_LEFT) {
+            if (ed.cursor_x > 0) {
+                ed.cursor_x--;
+            } else if (ed.cursor_y > 0) {
+                ed.cursor_y--;
+                ed.cursor_x = strlen(ed.lines[ed.cursor_y]);
+            }
+        } else if (c == (char)KEY_RIGHT) {
+            if (ed.lines[ed.cursor_y][ed.cursor_x] != '\0') {
+                ed.cursor_x++;
+            } else if (ed.cursor_y < ed.line_count - 1) {
+                ed.cursor_y++;
+                ed.cursor_x = 0;
+            }
+        } else if (c == (char)KEY_HOME) {
+            ed.cursor_x = 0;
+        } else if (c == (char)KEY_END) {
+            ed.cursor_x = strlen(ed.lines[ed.cursor_y]);
+        } else if (c == (char)KEY_PGUP) {
+            int target = ed.cursor_y - CONTENT_H;
+            if (target < 0) target = 0;
+            ed.cursor_y = target;
+            ed.scroll_y = (ed.cursor_y > CONTENT_H) ? ed.cursor_y - CONTENT_H + 1 : 0;
+            if (ed.cursor_x > (int)strlen(ed.lines[ed.cursor_y]))
+                ed.cursor_x = strlen(ed.lines[ed.cursor_y]);
+        } else if (c == (char)KEY_PGDN) {
+            int target = ed.cursor_y + CONTENT_H;
+            if (target >= ed.line_count) target = ed.line_count - 1;
+            if (target < 0) target = 0;
+            ed.cursor_y = target;
+            ed.scroll_y = ed.cursor_y;
+            if (ed.cursor_y > ed.line_count - 1) ed.cursor_y = ed.line_count - 1;
+            if (ed.cursor_x > (int)strlen(ed.lines[ed.cursor_y]))
+                ed.cursor_x = strlen(ed.lines[ed.cursor_y]);
         } else if (c >= 32 && c < 127) {
             editor_insert_char(c);
         }
